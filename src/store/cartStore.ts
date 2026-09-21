@@ -15,6 +15,7 @@ export interface CartItem {
   category?: string;
   preset_weights?: number[];
   preset_prices?: number[];
+  is_loose?: boolean;
 }
 
 interface CartState {
@@ -27,6 +28,7 @@ interface CartState {
   activeCategory: string;
   looseItemModalOpen: boolean;
   looseProduct: Product | null;
+  editingLooseIndex: number | null;
   customItemModalOpen: boolean;
   paymentModalOpen: boolean;
   addCustomerModalOpen: boolean;
@@ -47,6 +49,7 @@ interface CartState {
   setSearchQuery: (query: string) => void;
   setActiveCategory: (category: string) => void;
   openLooseModal: (product: Product) => void;
+  openLooseEditModal: (index: number) => void;
   closeLooseModal: () => void;
   openCustomModal: () => void;
   closeCustomModal: () => void;
@@ -70,6 +73,7 @@ export const useCartStore = create<CartState>()(
       activeCategory: "All",
       looseItemModalOpen: false,
       looseProduct: null,
+      editingLooseIndex: null,
       customItemModalOpen: false,
       paymentModalOpen: false,
       addCustomerModalOpen: false,
@@ -164,9 +168,27 @@ export const useCartStore = create<CartState>()(
       setActiveCategory: (category) => set({ activeCategory: category }),
 
       openLooseModal: (product) =>
-        set({ looseItemModalOpen: true, looseProduct: product, activeModal: "loose" }),
+        set({ looseItemModalOpen: true, looseProduct: product, editingLooseIndex: null, activeModal: "loose" }),
+      openLooseEditModal: (index) =>
+        set((state) => {
+          const item = state.items[index];
+          if (!item) return {};
+          // reconstruct a Product-like object from cart item for editing
+          const prod: Product = {
+            id: item.productId || `edit-${index}`,
+            name: item.name,
+            is_loose: true,
+            rate_per_kg: item.price,
+            price: item.price,
+            category: item.category || "Loose Items",
+            preset_weights: item.preset_weights,
+            preset_prices: item.preset_prices,
+          } as Product;
+          // store weight in looseProduct + index for edit mode
+          return { looseItemModalOpen: true, looseProduct: prod, editingLooseIndex: index, activeModal: "loose" };
+        }),
       closeLooseModal: () =>
-        set({ looseItemModalOpen: false, looseProduct: null, activeModal: null }),
+        set({ looseItemModalOpen: false, looseProduct: null, editingLooseIndex: null, activeModal: null }),
 
       openCustomModal: () =>
         set({ customItemModalOpen: true, activeModal: "custom" }),

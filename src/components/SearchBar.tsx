@@ -104,7 +104,7 @@ export default function SearchBar() {
 
   const add = (p: Product) => {
     if (p.is_loose) openLooseModal({ ...p, price: p.rate_per_kg || 0, unit: "kg" } as Product);
-    else addItem({ productId: p.id, name: p.name, price: p.price || 0, unit: "pcs", quantity: 1, lineTotal: p.price || 0, isCustom: false });
+    else addItem({ productId: p.id, name: p.name, price: p.price || 0, unit: "pcs", quantity: 1, lineTotal: p.price || 0, isCustom: false, is_loose: false, category: p.category });
     setSearchQuery("");
     setResults([]);
     setShow(false);

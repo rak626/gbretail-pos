@@ -21,8 +21,29 @@ export default function CartPanel() {
     holdOrder,
     openCustomModal,
     openPaymentModal,
+    openLooseEditModal,
     calculateGrandTotal,
   } = useCartStore();
+
+  const formatLoose = (w?: number) => {
+    if (!w || w <= 0) return "0 g";
+    if (w >= 1) return `${w.toFixed(3)} kg`;
+    return `${Math.round(w * 1000)} g`;
+  };
+
+  const getRateLabel = (it: (typeof items)[number]) => {
+    if (it.isCustom) {
+      const u = it.unit?.toLowerCase();
+      if (u === "pcs" || u === "pc") return `${formatINR(it.price)} / pc`;
+      if (u === "pack" || u === "pkt") return `${formatINR(it.price)} / pack`;
+      return `${formatINR(it.price)} / ${it.unit}`;
+    }
+    const isLoose = !!it.is_loose || (!!it.weight && it.weight > 0);
+    if (isLoose) return `${formatINR(it.price)}/kg`;
+    const u = it.unit?.toLowerCase();
+    if (u === "pcs" || u === "pc") return `${formatINR(it.price)} / pc`;
+    return `${formatINR(it.price)} / pack`;
+  };
 
   const [showDiscountInput, setShowDiscountInput] = useState(false);
   const [discountValue, setDiscountValue] = useState("");
@@ -54,42 +75,62 @@ export default function CartPanel() {
               No items in cart
             </div>
           )}
-          {items.map((item, index) => (
+          {items.map((item, index) => {
+            const isLoose = !!item.is_loose || (!!item.weight && item.weight > 0);
+            const isCustom = !!item.isCustom;
+            return (
             <Card key={index} className="py-0">
               <CardContent className="p-3">
                 <div className="flex justify-between items-start">
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">{item.name}</div>
+                    <div className="font-medium text-sm truncate flex items-center gap-1.5">
+                      <span className="truncate">{item.name}</span>
+                      {isCustom && <Badge variant="outline" className="text-[9px] h-4 px-1 bg-amber-50 text-amber-700 border-amber-200 shrink-0">External</Badge>}
+                      {isLoose && !isCustom && <Badge variant="secondary" className="text-[9px] h-4 px-1 shrink-0">Loose</Badge>}
+                    </div>
                     <div className="text-xs text-muted-foreground">
-                      {item.isCustom ? (
+                      {isCustom ? (
                         <span>{item.unit || ""}</span>
+                      ) : isLoose ? (
+                        <span>{formatLoose(item.weight)}</span>
                       ) : (
-                        <span>{formatQty(item.quantity, item.weight, item.unit)}</span>
+                        <span>{item.quantity || 0} pcs</span>
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Rate: {formatINR(item.price)}/{item.isCustom ? item.unit : "kg"}
+                      Rate: {getRateLabel(item)}
                     </div>
                   </div>
                   <Button variant="ghost" size="icon-xs" onClick={() => removeItem(index)}>
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
-                {!item.isCustom && (
+                {isLoose && !isCustom ? (
+                  <div className="flex gap-2 mt-2 items-center">
+                    <Button variant="outline" size="icon-xs" onClick={() => openLooseEditModal(index)}>
+                      <Minus className="w-3 h-3" />
+                    </Button>
+                    <Badge onClick={() => openLooseEditModal(index)} variant="outline" className="flex-1 justify-center font-mono text-xs bg-primary/10 border-primary/20 text-primary cursor-pointer hover:bg-primary/15 touch-manipulation">{formatLoose(item.weight)}</Badge>
+                    <Button variant="outline" size="icon-xs" className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => openLooseEditModal(index)}>
+                      <Plus className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ) : !isCustom ? (
                   <div className="flex gap-2 mt-2 items-center">
                     <Button variant="outline" size="icon-xs" onClick={() => updateQty(index, (item.quantity || 0) + 1)}>
                       <Plus className="w-3 h-3" />
                     </Button>
-                    <Badge variant="outline" className="flex-1 justify-center font-mono text-xs">{item.quantity || item.weight}</Badge>
+                    <Badge variant="outline" className="flex-1 justify-center font-mono text-xs">{item.quantity || 0}</Badge>
                     <Button variant="outline" size="icon-xs" onClick={() => updateQty(index, Math.max(0, (item.quantity || 0) - 1))}>
                       <Minus className="w-3 h-3" />
                     </Button>
                   </div>
-                )}
+                ) : null}
                 <div className="text-right font-bold text-sm mt-1">{formatINR(item.lineTotal)}</div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </CardContent>
       </ScrollArea>
 

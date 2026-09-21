@@ -87,6 +87,8 @@ export default function CatalogGrid() {
         quantity: 1,
         lineTotal: product.price || 0,
         isCustom: false,
+        is_loose: false,
+        category: product.category,
       });
     }
   };
