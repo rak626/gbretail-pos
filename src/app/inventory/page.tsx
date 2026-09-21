@@ -1,0 +1,571 @@
+"use client";
+
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import AppShell from "@/components/AppShell";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { formatINR } from "@/lib/utils";
+import { fetchProducts, createProduct } from "@/lib/api";
+import type { Product } from "@/db/database";
+import SearchBox from "@/components/SearchBox";
+import { Search, Plus, Package, AlertTriangle, Boxes, Pencil, Trash2, Minus, TrendingUp } from "lucide-react";
+
+const CATEGORIES = ["All", "Staples", "Loose Items", "Packaged", "Snacks", "Dairy", "Vegetables", "Spices"] as const;
+
+type ProductForm = {
+  name: string;
+  category: string;
+  is_loose: boolean;
+  price: string;
+  rate_per_kg: string;
+  barcode: string;
+  unit: string;
+  stockQuantity: string;
+  description: string;
+};
+
+const emptyForm: ProductForm = {
+  name: "",
+  category: "Staples",
+  is_loose: false,
+  price: "",
+  rate_per_kg: "",
+  barcode: "",
+  unit: "pcs",
+  stockQuantity: "100",
+  description: "",
+};
+
+export default function InventoryPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<string>("All");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // dialog
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Product | null>(null);
+  const [form, setForm] = useState<ProductForm>(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  const load = useCallback(async (searchVal?: string) => {
+    const s = searchVal !== undefined ? searchVal : search;
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setLoading(true);
+    setError("");
+    try {
+      const data = await fetchProducts(s ? { search: s, limit: 200 } : { limit: 200 }, { signal: controller.signal });
+      if (controller.signal.aborted) return;
+      setProducts(data as unknown as Product[]);
+    } catch (e) {
+      if ((e as Error)?.name === "AbortError") return;
+      setError(e instanceof Error ? e.message : "Failed to load products");
+    } finally {
+      if (!controller.signal.aborted) setLoading(false);
+    }
+  }, [search]);
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Same as product search: focus shortcut
+  useEffect(() => {
+    const h = () => searchRef.current?.focus();
+    window.addEventListener("focus-search", h);
+    return () => window.removeEventListener("focus-search", h);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, []);
+
+  const doSearchApi = useCallback(async (trimmed: string) => {
+    if (trimmed.startsWith(" ") || (trimmed && trimmed.length < 3)) return;
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setLoading(true);
+    setError("");
+    try {
+      const data = await fetchProducts(trimmed ? { search: trimmed, limit: 10 } : { limit: 200 }, { signal: controller.signal });
+      if (controller.signal.aborted) return;
+      setProducts(data as unknown as Product[]);
+      requestAnimationFrame(() => searchRef.current?.focus());
+    } catch (e) {
+      if ((e as Error)?.name === "AbortError") return;
+      setError(e instanceof Error ? e.message : "Failed to load products");
+    } finally {
+      if (!controller.signal.aborted) setLoading(false);
+    }
+  }, []);
+
+  const handleImmediate = (v: string) => {
+    if (v.startsWith(" ")) return;
+    setSearch(v);
+    requestAnimationFrame(() => searchRef.current?.focus());
+  };
+
+  const handleDebouncedSearch = (trimmed: string) => {
+    if (!trimmed || trimmed.length < 3 || trimmed.startsWith(" ")) {
+      if (!trimmed) doSearchApi("");
+      return;
+    }
+    doSearchApi(trimmed);
+  };
+
+  const handleClearSearch = () => {
+    doSearchApi("");
+  };
+
+  const handleFocusSearch = (q: string) => {
+    if (q.startsWith(" ")) return;
+    const trimmed = q.trim();
+    if (!trimmed || trimmed.length < 3) return;
+    doSearchApi(trimmed);
+  };
+
+  const filtered = useMemo(() => {
+    return products.filter((p) => {
+      const q = search.trim().toLowerCase();
+      // autosuggestion after 3 letters, ignore blank/beginning space
+      const matchSearch = !q || q.length < 3 || q.startsWith(" ") ? true : p.name.toLowerCase().includes(q) || (p.barcode ?? "").toLowerCase().includes(q);
+      if (!matchSearch) return false;
+      if (category === "All") return true;
+      if (category === "Loose Items") return !!p.is_loose;
+      return p.category === category;
+    });
+  }, [products, search, category]);
+
+  const stats = useMemo(() => {
+    const total = products.length;
+    const low = products.filter((p) => (p.stockQuantity ?? 0) > 0 && (p.stockQuantity ?? 0) < 10).length;
+    const out = products.filter((p) => (p.stockQuantity ?? 0) <= 0).length;
+    const cats = new Set(products.map((p) => p.category)).size;
+    return { total, low, out, cats };
+  }, [products]);
+
+  const openAdd = () => {
+    setEditing(null);
+    setForm(emptyForm);
+    setFormError("");
+    setOpen(true);
+  };
+
+  const openEdit = (p: Product) => {
+    setEditing(p);
+    setForm({
+      name: p.name,
+      category: p.category,
+      is_loose: !!p.is_loose,
+      price: p.price != null ? String(p.price) : "",
+      rate_per_kg: p.rate_per_kg != null ? String(p.rate_per_kg) : "",
+      barcode: p.barcode ?? "",
+      unit: p.unit ?? "pcs",
+      stockQuantity: String(p.stockQuantity ?? 100),
+      description: "",
+    });
+    setFormError("");
+    setOpen(true);
+  };
+
+  const handleSave = async () => {
+    setFormError("");
+    if (!form.name.trim()) return setFormError("Product name is required");
+    if (!form.category) return setFormError("Category is required");
+    if (form.is_loose) {
+      if (!form.rate_per_kg || isNaN(Number(form.rate_per_kg)) || Number(form.rate_per_kg) <= 0)
+        return setFormError("Rate per kg is required for loose items");
+    } else {
+      if (!form.price || isNaN(Number(form.price)) || Number(form.price) < 0)
+        return setFormError("Price is required for packaged items");
+    }
+    if (form.barcode && form.barcode.length < 8) return setFormError("Barcode should be at least 8 characters");
+
+    setSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        id: editing?.id,
+        name: form.name.trim(),
+        category: form.category,
+        is_loose: form.is_loose,
+        barcode: form.barcode.trim() || null,
+        unit: form.unit.trim() || "pcs",
+        stockQuantity: Number(form.stockQuantity) || 0,
+      };
+      if (form.is_loose) {
+        payload.rate_per_kg = Number(form.rate_per_kg);
+        payload.price = null;
+      } else {
+        payload.price = Number(form.price);
+        payload.rate_per_kg = null;
+      }
+
+      // Upsert via POST /api/products (supports id)
+      const res = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save");
+
+      await load();
+      setOpen(false);
+      setEditing(null);
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (p: Product) => {
+    if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/products/${p.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || "Delete failed");
+      }
+      await load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Delete failed");
+    }
+  };
+
+  const adjustStock = async (p: Product, delta: number) => {
+    const newQty = Math.max(0, (p.stockQuantity ?? 0) + delta);
+    try {
+      const res = await fetch(`/api/products/${p.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stockQuantity: newQty }),
+      });
+      if (!res.ok) throw new Error("Stock update failed");
+      setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, stockQuantity: newQty } : x)));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Stock update failed");
+    }
+  };
+
+  return (
+    <AppShell>
+      <div className="flex-1 overflow-auto p-4 pb-8">
+        <div className="max-w-7xl mx-auto space-y-4">
+          {/* Header stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <Card className="py-0 gap-0">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 border flex items-center justify-center text-primary">
+                  <Package className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium">Total Products</div>
+                  <div className="text-xl font-black leading-none">{stats.total}</div>
+                </div>
+                <Badge variant="secondary" className="ml-auto hidden sm:flex">{stats.cats} categories</Badge>
+              </CardContent>
+            </Card>
+            <Card className="py-0 gap-0">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium">Low Stock &lt;10</div>
+                  <div className="text-xl font-black leading-none">{stats.low}</div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="py-0 gap-0">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-destructive/10 border border-destructive/20 flex items-center justify-center text-destructive">
+                  <Boxes className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium">Out of Stock</div>
+                  <div className="text-xl font-black leading-none">{stats.out}</div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="py-0 gap-0">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium">Filtered</div>
+                  <div className="text-xl font-black leading-none">{filtered.length}</div>
+                </div>
+                <div className="ml-auto text-[11px] text-muted-foreground hidden sm:block">of {stats.total}</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Toolbar: search + category + add */}
+          <Card className="py-0 border-primary/20 ring-1 ring-primary/5">
+            <CardContent className="p-1.5 space-y-3">
+              <div className="flex flex-col lg:flex-row gap-3">
+                <SearchBox
+                  placeholder="Search product by name, barcode or category..."
+                  leftIcon={<Search className="w-4 h-4" />}
+                  value={search}
+                  onValueChange={handleImmediate}
+                  onSearch={handleDebouncedSearch}
+                  onClear={handleClearSearch}
+                  onFocusSearch={handleFocusSearch}
+                  inputRef={searchRef}
+                  variant="plain"
+                />
+                <Button onClick={openAdd} className="h-10 px-5 bg-green-700 hover:bg-green-800 text-white dark:bg-green-700 shrink-0">
+                  <Plus className="w-4 h-4" /> Add Product
+                </Button>
+              </div>
+              <ScrollArea>
+                <div className="flex gap-2 pb-1">
+                  {CATEGORIES.map((cat) => (
+                    <Button
+                      key={cat}
+                      variant={category === cat ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCategory(cat)}
+                      className="whitespace-nowrap h-8"
+                    >
+                      {cat}
+                    </Button>
+                  ))}
+                </div>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            </CardContent>
+          </Card>
+
+          {/* Product table - inventory mode, not cart */}
+          <Card className="py-0 overflow-hidden">
+            <CardHeader className="py-3 border-b bg-muted/10 flex-row items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Package className="w-4 h-4 text-primary" /> Product Inventory
+                <Badge variant="outline" className="ml-2 font-normal">{filtered.length} items</Badge>
+              </CardTitle>
+              <div className="text-xs text-muted-foreground hidden sm:block">Manage stock • Search & Add on this page</div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="py-16 text-center text-sm text-muted-foreground">Loading inventory…</div>
+              ) : error ? (
+                <div className="py-10 text-center">
+                  <div className="text-sm font-medium text-destructive">{error}</div>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={() => load()}>Retry</Button>
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="py-16 text-center">
+                  <div className="text-sm font-medium">No products found</div>
+                  <div className="text-xs text-muted-foreground mt-1">Try a different search or add a new product</div>
+                  <Button onClick={openAdd} className="mt-4" size="sm"><Plus className="w-4 h-4" /> Add Product</Button>
+                </div>
+              ) : (
+                <div className="overflow-auto max-h-[56vh]">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-card z-10">
+                      <TableRow className="hover:bg-transparent border-b">
+                        <TableHead className="text-xs whitespace-nowrap">Product</TableHead>
+                        <TableHead className="text-xs hidden md:table-cell">Category</TableHead>
+                        <TableHead className="text-xs">Price / Rate</TableHead>
+                        <TableHead className="text-xs text-center">Stock</TableHead>
+                        <TableHead className="text-xs hidden lg:table-cell">Barcode</TableHead>
+                        <TableHead className="text-xs text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.map((p) => {
+                        const stock = p.stockQuantity ?? 0;
+                        const isLow = stock > 0 && stock < 10;
+                        const isOut = stock <= 0;
+                        return (
+                          <TableRow key={p.id} className="hover:bg-muted/40">
+                            <TableCell className="py-2.5">
+                              <div className="font-medium text-[13px] leading-tight line-clamp-1">{p.name}</div>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <Badge variant={p.is_loose ? "secondary" : "outline"} className="text-[10px] h-5 px-1.5">
+                                  {p.is_loose ? "Loose • per kg" : "Packaged"}
+                                </Badge>
+                                <span className="text-[11px] text-muted-foreground md:hidden">{p.category}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell">
+                              <Badge variant="outline" className="text-xs whitespace-nowrap">{p.category}</Badge>
+                            </TableCell>
+                            <TableCell className="text-[13px] font-bold whitespace-nowrap">
+                              {p.is_loose ? `${formatINR(p.rate_per_kg || 0)}/kg` : formatINR(p.price || 0)}
+                              <div className="text-[10px] font-normal text-muted-foreground">{p.unit || "pcs"}</div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <Button variant="outline" size="icon-xs" className="h-7 w-7" onClick={() => adjustStock(p, -1)} disabled={stock <= 0}>
+                                  <Minus className="w-3 h-3" />
+                                </Button>
+                                <Badge
+                                  variant={isOut ? "destructive" : isLow ? "secondary" : "outline"}
+                                  className={`min-w-[48px] justify-center font-mono text-xs h-7 ${isLow ? "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-200" : ""}`}
+                                >
+                                  {stock}
+                                </Badge>
+                                <Button variant="outline" size="icon-xs" className="h-7 w-7" onClick={() => adjustStock(p, 1)}>
+                                  <Plus className="w-3 h-3" />
+                                </Button>
+                              </div>
+                              {isLow && <div className="text-[10px] text-amber-600 font-medium mt-1">Low</div>}
+                              {isOut && <div className="text-[10px] text-destructive font-medium mt-1">Out</div>}
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell text-xs font-mono text-muted-foreground max-w-[140px] truncate">
+                              {p.barcode || "—"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-1">
+                                <Button variant="outline" size="icon-xs" className="h-7 w-7" onClick={() => openEdit(p)}>
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="icon-xs" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(p)}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="text-center text-[11px] text-muted-foreground py-4">
+            Search and Add Product are available on this Stock page — Billing cart is only on <span className="font-medium text-foreground">Billing</span> tab.
+          </div>
+        </div>
+      </div>
+
+      {/* Add / Edit Product Dialog */}
+      <Dialog open={open} onOpenChange={(v) => !v && setOpen(false)}>
+        <DialogContent className="sm:max-w-[460px] p-0 gap-0 overflow-hidden">
+          <DialogHeader className="p-5 pb-3">
+            <DialogTitle className="text-[14px]">{editing ? "Edit Product" : "Add Product"}</DialogTitle>
+            <DialogDescription className="text-[11px]">
+              {editing ? "Update product details and stock" : "Create a new product for inventory"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-5 pb-5 space-y-3">
+            <div className="space-y-1">
+              <Label className="text-[11px]">Product Name *</Label>
+              <Input value={form.name} onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))} placeholder="e.g., Tata Salt 1kg" className="h-8 text-xs" />
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="space-y-1">
+                <Label className="text-[11px]">Category *</Label>
+                <Select value={form.category} onValueChange={(v) => setForm((s) => ({ ...s, category: (v as string) ?? s.category }))}>
+                  <SelectTrigger className="h-8 w-full text-xs">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Staples">Staples</SelectItem>
+                    <SelectItem value="Packaged">Packaged</SelectItem>
+                    <SelectItem value="Snacks">Snacks</SelectItem>
+                    <SelectItem value="Dairy">Dairy</SelectItem>
+                    <SelectItem value="Vegetables">Vegetables</SelectItem>
+                    <SelectItem value="Spices">Spices</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Unit</Label>
+                <Input value={form.unit} onChange={(e) => setForm((s) => ({ ...s, unit: e.target.value }))} placeholder="pcs / kg" className="h-8 text-xs" />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 py-0.5">
+              <div className="flex items-center gap-1.5">
+                <Checkbox
+                  id="is_loose"
+                  checked={form.is_loose}
+                  onCheckedChange={(checked) => setForm((s) => ({ ...s, is_loose: checked === true }))}
+                />
+                <Label htmlFor="is_loose" className="text-[11px] font-medium cursor-pointer">
+                  Loose item (sold by weight)
+                </Label>
+              </div>
+              <Badge variant="outline" className="text-[10px] h-5 px-1.5">{form.is_loose ? "Loose" : "Packaged"}</Badge>
+            </div>
+
+            {form.is_loose ? (
+              <div className="space-y-1">
+                <Label className="text-[11px]">Rate per kg (₹) *</Label>
+                <Input type="number" value={form.rate_per_kg} onChange={(e) => setForm((s) => ({ ...s, rate_per_kg: e.target.value }))} placeholder="e.g., 48" className="h-8 text-xs" />
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <Label className="text-[11px]">Price (₹) *</Label>
+                <Input type="number" value={form.price} onChange={(e) => setForm((s) => ({ ...s, price: e.target.value }))} placeholder="e.g., 28" className="h-8 text-xs" />
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="space-y-1">
+                <Label className="text-[11px]">Barcode (optional)</Label>
+                <Input value={form.barcode} onChange={(e) => setForm((s) => ({ ...s, barcode: e.target.value }))} placeholder="8901..." className="h-8 font-mono text-[11px]" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Stock Quantity *</Label>
+                <Input type="number" value={form.stockQuantity} onChange={(e) => setForm((s) => ({ ...s, stockQuantity: e.target.value }))} placeholder="100" className="h-8 text-xs" />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[11px]">Description <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Textarea
+                value={form.description}
+                onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
+                placeholder="Product notes, supplier info or storage instructions..."
+                className="min-h-[56px] text-xs resize-none"
+                rows={2}
+              />
+            </div>
+
+            {formError && (
+              <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-2.5 py-1.5 text-xs font-medium text-destructive">
+                {formError}
+              </div>
+            )}
+          </div>
+          <DialogFooter className="p-4 gap-3 sm:justify-end">
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving} className="h-9 px-6 min-w-[96px]">Cancel</Button>
+            <Button onClick={handleSave} disabled={saving} className="bg-green-700 hover:bg-green-800 text-white h-9 px-6 min-w-[130px]">
+              {saving ? "Saving..." : editing ? "Update Product" : "Add Product"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </AppShell>
+  );
+}
