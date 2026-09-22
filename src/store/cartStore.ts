@@ -180,6 +180,7 @@ export const useCartStore = create<CartState>()(
             is_loose: true,
             rate_per_kg: item.price,
             price: item.price,
+            costPrice: item.costPrice ?? 0,
             category: item.category || "Loose Items",
             preset_weights: item.preset_weights,
             preset_prices: item.preset_prices,

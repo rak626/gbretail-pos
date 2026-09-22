@@ -26,6 +26,8 @@ export default function PaymentModal() {
 
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [creditTerm, setCreditTerm] = useState<"7" | "15" | "30" | "custom">("15");
+  const [customDays, setCustomDays] = useState("");
   const [splitCash, setSplitCash] = useState("");
   const [splitUpi, setSplitUpi] = useState("");
   const [saving, setSaving] = useState(false);
@@ -42,6 +44,7 @@ export default function PaymentModal() {
       lineTotal: item.lineTotal,
       isCustom: item.isCustom,
       costPrice: item.costPrice ?? null,
+      category: item.category ?? null,
     }));
 
   const buildReceiptItems = () =>
@@ -67,7 +70,7 @@ export default function PaymentModal() {
     }
   };
 
-  const saveOrder = async (paymentMethod: "cash" | "upi" | "khata" | "split", extra?: { customerName?: string; customerPhone?: string }) => {
+  const saveOrder = async (paymentMethod: "cash" | "upi" | "khata" | "split", extra?: { customerName?: string; customerPhone?: string; creditDays?: number }) => {
     if (items.length === 0) return null;
     try {
       const order = (await createOrder({
@@ -78,6 +81,7 @@ export default function PaymentModal() {
         customerId: currentCustomer?.id,
         customerName: extra?.customerName ?? currentCustomer?.name,
         customerPhone: extra?.customerPhone ?? currentCustomer?.phone,
+        creditDays: extra?.creditDays,
       })) as unknown as { orderNumber: string; customer?: { id: string; name: string; phone: string | null; balance: number; createdAt: string; updatedAt: string } };
       return order as unknown as { orderNumber: string; customer?: unknown };
     } catch (e) {
@@ -119,8 +123,18 @@ export default function PaymentModal() {
     const phone = customerPhone.trim() || currentCustomer?.phone || "";
     if (!name) return;
     if (saving) return;
+    // resolve credit days: 7 / 15 / 30 / custom
+    let cd = 15;
+    if (creditTerm === "7") cd = 7;
+    else if (creditTerm === "15") cd = 15;
+    else if (creditTerm === "30") cd = 30;
+    else if (creditTerm === "custom") {
+      const n = parseInt(customDays, 10);
+      cd = isNaN(n) || n < 1 ? 30 : Math.min(365, n);
+    }
+    if (creditTerm === "custom" && (!customDays || isNaN(parseInt(customDays, 10)) || parseInt(customDays, 10) < 1)) return;
     setSaving(true);
-    const saved = await saveOrder("khata", { customerName: name, customerPhone: phone });
+    const saved = await saveOrder("khata", { customerName: name, customerPhone: phone, creditDays: cd });
     const savedCustomer = (saved as unknown as { customer?: { id: string; name: string; phone: string | null; balance: number } })?.customer;
     if (savedCustomer && typeof savedCustomer === "object") {
       const normalized = {
@@ -194,11 +208,63 @@ export default function PaymentModal() {
 
           <Separator />
 
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label className="text-[11px] font-semibold">Khata (Credit) — Shift+L</Label>
             <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder={currentCustomer?.name ?? "Customer name"} className="h-8 text-xs" />
             <Input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder={currentCustomer?.phone ?? "Phone number"} type="tel" className="h-8 text-xs" />
-            <Button onClick={handleKhata} disabled={saving || (!customerName.trim() && !currentCustomer)} variant="secondary" size="sm" className="w-full bg-violet-600 hover:bg-violet-700 text-white dark:bg-violet-600 h-8 text-xs">{saving ? "Saving..." : "Add to Ledger"}</Button>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] text-muted-foreground">Credit term</Label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {(["7", "15", "30", "custom"] as const).map((t) => (
+                  <Button
+                    key={t}
+                    type="button"
+                    variant={creditTerm === t ? "default" : "outline"}
+                    size="sm"
+                    className="h-7 text-[11px] px-1"
+                    onClick={() => setCreditTerm(t)}
+                  >
+                    {t === "7" ? "7 days" : t === "15" ? "15 days" : t === "30" ? "1 month" : "Custom"}
+                  </Button>
+                ))}
+              </div>
+              {creditTerm === "custom" && (
+                <Input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={customDays}
+                  onChange={(e) => setCustomDays(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                  placeholder="Custom days (1-365)"
+                  className="h-8 text-xs"
+                  autoFocus
+                />
+              )}
+              <div className="text-[10px] text-muted-foreground">
+                Due: {(() => {
+                  let d = 15;
+                  if (creditTerm === "7") d = 7;
+                  else if (creditTerm === "15") d = 15;
+                  else if (creditTerm === "30") d = 30;
+                  else d = parseInt(customDays || "0", 10) || 0;
+                  if (!d) return "— select term";
+                  const due = new Date();
+                  due.setHours(0, 0, 0, 0);
+                  due.setDate(due.getDate() + d);
+                  return `${d} days → ${due.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`;
+                })()}
+              </div>
+            </div>
+            <Button
+              onClick={handleKhata}
+              disabled={saving || (!customerName.trim() && !currentCustomer) || (creditTerm === "custom" && (!customDays || parseInt(customDays, 10) < 1))}
+              variant="secondary"
+              size="sm"
+              className="w-full bg-violet-600 hover:bg-violet-700 text-white dark:bg-violet-600 h-8 text-xs"
+            >
+              {saving ? "Saving..." : `Add to Ledger — ${formatINR(grandTotal)}`}
+            </Button>
+            <div className="text-[10px] text-muted-foreground text-center">Shown in Ledger → Due Today on due date</div>
           </div>
 
           <Separator />

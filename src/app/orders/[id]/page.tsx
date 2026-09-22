@@ -13,6 +13,7 @@ import { formatINR } from "@/lib/utils";
 import { generateReceiptHTML } from "@/lib/print";
 import { ArrowLeft, Calendar, User, Phone, CreditCard, ShoppingBag, Printer, Receipt } from "lucide-react";
 import type { Order } from "@/db/database";
+import { fetchOrder } from "@/lib/api";
 
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
@@ -26,10 +27,8 @@ export default function OrderDetailPage() {
       setLoading(true);
       setError("");
       try {
-        const res = await fetch(`/api/orders/${id}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Not found");
-        setOrder(data.order);
+        const o = await fetchOrder(id as string);
+        setOrder(o as unknown as typeof order);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load");
       } finally {

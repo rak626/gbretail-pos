@@ -21,8 +21,9 @@ export default function Home() {
 
   useEffect(() => {
     initializeOfflineDetection();
-    // Warm up API — check health, fallback silently if DB not configured
-    fetch("/api/health").catch(() => {});
+    // Warm up API — check health via backend, fallback silently if DB not configured
+    const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+    fetch(`${base}/api/health`).catch(() => {});
   }, []);
 
   useKeyboardShortcuts();

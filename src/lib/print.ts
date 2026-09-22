@@ -1,3 +1,15 @@
+export function getOrderPdfFilename(orderId: string, date = new Date()): string {
+  const yy = String(date.getFullYear()).slice(-2);
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mi = String(date.getMinutes()).padStart(2, "0");
+  const ss = String(date.getSeconds()).padStart(2, "0");
+  const ts = `${yy}${mm}${dd}${hh}${mi}${ss}`;
+  const safeId = orderId.replace(/[^a-zA-Z0-9-_]/g, "_");
+  return `${safeId}_${ts}`;
+}
+
 export function generateReceiptHTML(
   items: { name: string; unit: string; lineTotal: number }[],
   total: number,
@@ -8,6 +20,7 @@ export function generateReceiptHTML(
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-IN");
   const timeStr = now.toLocaleTimeString("en-IN");
+  const pdfTitle = orderId ? getOrderPdfFilename(orderId, now) : `ORDER_${getOrderPdfFilename("TEMP", now)}`;
 
   const itemsHTML = items
     .map(
@@ -20,7 +33,7 @@ export function generateReceiptHTML(
     .join("");
 
   return `<!DOCTYPE html>
-<html><head><meta charset="UTF-8">
+<html><head><meta charset="UTF-8"><title>${pdfTitle}</title>
 <style>
 @page { size: 58mm; margin: 5mm; }
 body { font-family: 'Courier New', monospace; font-size: 11px; margin: 0; padding: 0; }

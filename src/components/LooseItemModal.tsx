@@ -117,6 +117,7 @@ export default function LooseItemModal() {
           category: looseProduct.category,
           preset_weights: looseProduct.preset_weights,
           preset_prices: looseProduct.preset_prices,
+          costPrice: (looseProduct as any).costPrice ?? 0,
         });
       }
       setWeightGrams("");

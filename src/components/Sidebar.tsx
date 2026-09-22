@@ -12,6 +12,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   X,
+  BookOpen,
+  BarChart3,
 } from "lucide-react";
 
 type NavItem = {
@@ -23,7 +25,9 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Billing", icon: ShoppingCart },
   { href: "/orders", label: "Orders", icon: Receipt },
-  { href: "/inventory", label: "Stock", icon: LayoutDashboard },
+  { href: "/inventory", label: "Inventory", icon: LayoutDashboard },
+  { href: "/ledger", label: "Ledger", icon: BookOpen },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
 ];
 
 export default function Sidebar() {

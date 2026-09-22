@@ -7,6 +7,7 @@ export interface Product {
   rate_per_kg?: number | null;
   barcode?: string | null;
   price?: number | null;
+  costPrice: number;
   unit?: string;
   category: string;
   preset_weights?: number[];
@@ -26,6 +27,7 @@ export interface OrderItem {
   lineTotal: number;
   isCustom: boolean;
   costPrice?: number | null;
+  category?: string | null;
 }
 
 export interface Customer {

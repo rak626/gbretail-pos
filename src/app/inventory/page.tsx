@@ -14,7 +14,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { formatINR } from "@/lib/utils";
-import { fetchProducts, createProduct } from "@/lib/api";
+import { fetchProducts, createProduct, updateProduct, deleteProduct } from "@/lib/api";
 import type { Product } from "@/db/database";
 import SearchBox from "@/components/SearchBox";
 import { Search, Plus, Package, AlertTriangle, Boxes, Pencil, Trash2, Minus, TrendingUp, PackagePlus } from "lucide-react";
@@ -26,6 +26,7 @@ type ProductForm = {
   category: string;
   is_loose: boolean;
   price: string;
+  costPrice: string;
   rate_per_kg: string;
   barcode: string;
   unit: string;
@@ -38,6 +39,7 @@ const emptyForm: ProductForm = {
   category: "Staples",
   is_loose: false,
   price: "",
+  costPrice: "",
   rate_per_kg: "",
   barcode: "",
   unit: "pcs",
@@ -188,6 +190,7 @@ export default function InventoryPage() {
       category: p.category,
       is_loose: !!p.is_loose,
       price: p.price != null ? String(p.price) : "",
+      costPrice: (p as any).costPrice != null ? String((p as any).costPrice) : "",
       rate_per_kg: p.rate_per_kg != null ? String(p.rate_per_kg) : "",
       barcode: p.barcode ?? "",
       unit: p.unit ?? "pcs",
@@ -202,6 +205,7 @@ export default function InventoryPage() {
     setFormError("");
     if (!form.name.trim()) return setFormError("Product name is required");
     if (!form.category) return setFormError("Category is required");
+    if (!form.costPrice || isNaN(Number(form.costPrice)) || Number(form.costPrice) < 0) return setFormError("Buying price (costPrice) is required and must be >=0");
     if (form.is_loose) {
       if (!form.rate_per_kg || isNaN(Number(form.rate_per_kg)) || Number(form.rate_per_kg) <= 0)
         return setFormError("Rate per kg is required for loose items");
@@ -219,6 +223,7 @@ export default function InventoryPage() {
         category: form.category,
         is_loose: form.is_loose,
         barcode: form.barcode.trim() || null,
+        costPrice: Number(form.costPrice),
         unit: form.unit.trim() || "pcs",
         stockQuantity: Number(form.stockQuantity) || 0,
       };
@@ -230,14 +235,8 @@ export default function InventoryPage() {
         payload.rate_per_kg = null;
       }
 
-      // Upsert via POST /api/products (supports id)
-      const res = await fetch("/api/products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save");
+      // Upsert via backend (Hono)
+      await createProduct(payload as Record<string, unknown>);
 
       await load();
       setOpen(false);
@@ -283,13 +282,7 @@ export default function InventoryPage() {
 
     setRestockSaving(true);
     try {
-      const res = await fetch(`/api/products/${restockProduct.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Restock failed");
+      await updateProduct(restockProduct.id, payload as Record<string, unknown>);
       setProducts((prev) => prev.map((x) => (x.id === restockProduct.id ? { ...x, stockQuantity: newQty, ...(payload.price != null ? { price: payload.price as number } : {}), ...(payload.rate_per_kg != null ? { rate_per_kg: payload.rate_per_kg as number } : {}) } : x)));
       setRestockOpen(false);
       setRestockProduct(null);
@@ -303,11 +296,7 @@ export default function InventoryPage() {
   const handleDelete = async (p: Product) => {
     if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
     try {
-      const res = await fetch(`/api/products/${p.id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error || "Delete failed");
-      }
+      await deleteProduct(p.id);
       await load();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Delete failed");
@@ -317,12 +306,7 @@ export default function InventoryPage() {
   const adjustStock = async (p: Product, delta: number) => {
     const newQty = Math.max(0, (p.stockQuantity ?? 0) + delta);
     try {
-      const res = await fetch(`/api/products/${p.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stockQuantity: newQty }),
-      });
-      if (!res.ok) throw new Error("Stock update failed");
+      await updateProduct(p.id, { stockQuantity: newQty });
       setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, stockQuantity: newQty } : x)));
     } catch (e) {
       alert(e instanceof Error ? e.message : "Stock update failed");
@@ -594,10 +578,15 @@ export default function InventoryPage() {
               </div>
             ) : (
               <div className="space-y-1">
-                <Label className="text-[11px]">Price (₹) *</Label>
+                <Label className="text-[11px]">Selling Price (₹) *</Label>
                 <Input type="number" value={form.price} onChange={(e) => setForm((s) => ({ ...s, price: e.target.value }))} placeholder="e.g., 28" className="h-8 text-xs" />
               </div>
             )}
+            <div className="space-y-1">
+              <Label className="text-[11px]">Buying Price — Cost (₹) *</Label>
+              <Input type="number" value={form.costPrice} onChange={(e) => setForm((s) => ({ ...s, costPrice: e.target.value }))} placeholder="e.g., 22 (mandatory for profit)" className="h-8 text-xs" />
+              <div className="text-[10px] text-muted-foreground">Profit = Sell - Buy. Mandatory for analytics.</div>
+            </div>
 
             <div className="grid grid-cols-2 gap-2.5">
               <div className="space-y-1">
