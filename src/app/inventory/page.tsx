@@ -17,7 +17,7 @@ import { formatINR } from "@/lib/utils";
 import { fetchProducts, createProduct } from "@/lib/api";
 import type { Product } from "@/db/database";
 import SearchBox from "@/components/SearchBox";
-import { Search, Plus, Package, AlertTriangle, Boxes, Pencil, Trash2, Minus, TrendingUp } from "lucide-react";
+import { Search, Plus, Package, AlertTriangle, Boxes, Pencil, Trash2, Minus, TrendingUp, PackagePlus } from "lucide-react";
 
 const CATEGORIES = ["All", "Staples", "Loose Items", "Packaged", "Snacks", "Dairy", "Vegetables", "Spices"] as const;
 
@@ -61,6 +61,15 @@ export default function InventoryPage() {
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+
+  // restock dialog: stock is low → buy new batch at possibly new cost/selling price
+  const [restockOpen, setRestockOpen] = useState(false);
+  const [restockProduct, setRestockProduct] = useState<Product | null>(null);
+  const [restockQty, setRestockQty] = useState("");
+  const [restockPrice, setRestockPrice] = useState("");
+  const [restockRate, setRestockRate] = useState("");
+  const [restockSaving, setRestockSaving] = useState(false);
+  const [restockError, setRestockError] = useState("");
 
   const load = useCallback(async (searchVal?: string) => {
     const s = searchVal !== undefined ? searchVal : search;
@@ -240,6 +249,57 @@ export default function InventoryPage() {
     }
   };
 
+  const openRestock = (p: Product) => {
+    setRestockProduct(p);
+    setRestockQty("");
+    setRestockPrice(p.is_loose ? "" : String(p.price ?? ""));
+    setRestockRate(p.is_loose ? String(p.rate_per_kg ?? "") : "");
+    setRestockError("");
+    setRestockOpen(true);
+  };
+
+  const handleRestock = async () => {
+    if (!restockProduct) return;
+    setRestockError("");
+    const add = Number(restockQty);
+    if (!restockQty || isNaN(add) || add <= 0) return setRestockError("Enter valid quantity to add (e.g., 40)");
+    const currentStock = restockProduct.stockQuantity ?? 0;
+    const newQty = currentStock + add;
+
+    const payload: Record<string, unknown> = { stockQuantity: newQty };
+    if (restockProduct.is_loose) {
+      if (restockRate.trim() !== "") {
+        const r = Number(restockRate);
+        if (isNaN(r) || r <= 0) return setRestockError("Rate per kg must be > 0");
+        payload.rate_per_kg = r;
+      }
+    } else {
+      if (restockPrice.trim() !== "") {
+        const pr = Number(restockPrice);
+        if (isNaN(pr) || pr < 0) return setRestockError("Price must be 0 or more");
+        payload.price = pr;
+      }
+    }
+
+    setRestockSaving(true);
+    try {
+      const res = await fetch(`/api/products/${restockProduct.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Restock failed");
+      setProducts((prev) => prev.map((x) => (x.id === restockProduct.id ? { ...x, stockQuantity: newQty, ...(payload.price != null ? { price: payload.price as number } : {}), ...(payload.rate_per_kg != null ? { rate_per_kg: payload.rate_per_kg as number } : {}) } : x)));
+      setRestockOpen(false);
+      setRestockProduct(null);
+    } catch (e) {
+      setRestockError(e instanceof Error ? e.message : "Restock failed");
+    } finally {
+      setRestockSaving(false);
+    }
+  };
+
   const handleDelete = async (p: Product) => {
     if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
     try {
@@ -271,8 +331,8 @@ export default function InventoryPage() {
 
   return (
     <AppShell>
-      <div className="flex-1 overflow-auto p-4 pb-8">
-        <div className="max-w-7xl mx-auto space-y-4">
+      <div className="flex-1 flex flex-col overflow-auto p-4 pb-6 min-h-0">
+        <div className="max-w-7xl mx-auto space-y-4 w-full flex-1 flex flex-col min-h-0">
           {/* Header stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Card className="py-0 gap-0">
@@ -362,15 +422,15 @@ export default function InventoryPage() {
           </Card>
 
           {/* Product table - inventory mode, not cart */}
-          <Card className="py-0 overflow-hidden">
-            <CardHeader className="py-3 border-b bg-muted/10 flex-row items-center justify-between">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Package className="w-4 h-4 text-primary" /> Product Inventory
-                <Badge variant="outline" className="ml-2 font-normal">{filtered.length} items</Badge>
+          <Card className="py-0 overflow-hidden flex-1 flex flex-col min-h-0">
+            <CardHeader className="py-4 border-b bg-muted/10 flex-row items-center justify-between">
+              <CardTitle className="text-[15px] flex items-center gap-2">
+                <Package className="w-5 h-5 text-primary" /> Product Inventory
+                <Badge variant="outline" className="ml-2 font-normal text-sm px-2.5 py-0.5">{filtered.length} items</Badge>
               </CardTitle>
-              <div className="text-xs text-muted-foreground hidden sm:block">Manage stock • Search & Add on this page</div>
+              <div className="text-sm text-muted-foreground hidden sm:block">Manage stock • Search & Add on this page</div>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-0 flex-1 flex flex-col min-h-0 overflow-hidden">
               {loading ? (
                 <div className="py-16 text-center text-sm text-muted-foreground">Loading inventory…</div>
               ) : error ? (
@@ -385,16 +445,16 @@ export default function InventoryPage() {
                   <Button onClick={openAdd} className="mt-4" size="sm"><Plus className="w-4 h-4" /> Add Product</Button>
                 </div>
               ) : (
-                <div className="overflow-auto max-h-[56vh]">
+                <div className="overflow-auto flex-1 min-h-[380px] max-h-[68vh] lg:max-h-[72vh]">
                   <Table>
-                    <TableHeader className="sticky top-0 bg-card z-10">
-                      <TableRow className="hover:bg-transparent border-b">
-                        <TableHead className="text-xs whitespace-nowrap">Product</TableHead>
-                        <TableHead className="text-xs hidden md:table-cell">Category</TableHead>
-                        <TableHead className="text-xs">Price / Rate</TableHead>
-                        <TableHead className="text-xs text-center">Stock</TableHead>
-                        <TableHead className="text-xs hidden lg:table-cell">Barcode</TableHead>
-                        <TableHead className="text-xs text-right">Actions</TableHead>
+                    <TableHeader className="sticky top-0 bg-card z-10 shadow-sm">
+                      <TableRow className="hover:bg-transparent border-b h-12">
+                        <TableHead className="text-[13px] font-semibold whitespace-nowrap px-4">Product</TableHead>
+                        <TableHead className="text-[13px] font-semibold hidden md:table-cell">Category</TableHead>
+                        <TableHead className="text-[13px] font-semibold">Price / Rate</TableHead>
+                        <TableHead className="text-[13px] font-semibold text-center">Stock</TableHead>
+                        <TableHead className="text-[13px] font-semibold hidden lg:table-cell">Barcode</TableHead>
+                        <TableHead className="text-[13px] font-semibold text-right px-4">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -403,51 +463,60 @@ export default function InventoryPage() {
                         const isLow = stock > 0 && stock < 10;
                         const isOut = stock <= 0;
                         return (
-                          <TableRow key={p.id} className="hover:bg-muted/40">
-                            <TableCell className="py-2.5">
-                              <div className="font-medium text-[13px] leading-tight line-clamp-1">{p.name}</div>
-                              <div className="flex items-center gap-1.5 mt-1">
-                                <Badge variant={p.is_loose ? "secondary" : "outline"} className="text-[10px] h-5 px-1.5">
+                          <TableRow key={p.id} className="hover:bg-muted/40 h-[62px]">
+                            <TableCell className="py-3.5 px-4">
+                              <div className="font-semibold text-sm leading-tight line-clamp-1">{p.name}</div>
+                              <div className="flex items-center gap-1.5 mt-1.5">
+                                <Badge variant={p.is_loose ? "secondary" : "outline"} className="text-[11px] h-6 px-2">
                                   {p.is_loose ? "Loose • per kg" : "Packaged"}
                                 </Badge>
-                                <span className="text-[11px] text-muted-foreground md:hidden">{p.category}</span>
+                                <span className="text-xs text-muted-foreground md:hidden">{p.category}</span>
                               </div>
                             </TableCell>
                             <TableCell className="hidden md:table-cell">
-                              <Badge variant="outline" className="text-xs whitespace-nowrap">{p.category}</Badge>
+                              <Badge variant="outline" className="text-sm whitespace-nowrap px-2.5 py-0.5">{p.category}</Badge>
                             </TableCell>
-                            <TableCell className="text-[13px] font-bold whitespace-nowrap">
+                            <TableCell className="text-sm font-bold whitespace-nowrap">
                               {p.is_loose ? `${formatINR(p.rate_per_kg || 0)}/kg` : formatINR(p.price || 0)}
-                              <div className="text-[10px] font-normal text-muted-foreground">{p.unit || "pcs"}</div>
+                              <div className="text-xs font-normal text-muted-foreground">{p.unit || "pcs"}</div>
                             </TableCell>
                             <TableCell className="text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                <Button variant="outline" size="icon-xs" className="h-7 w-7" onClick={() => adjustStock(p, -1)} disabled={stock <= 0}>
-                                  <Minus className="w-3 h-3" />
+                              <div className="flex items-center justify-center gap-1.5">
+                                <Button variant="outline" size="icon-xs" className="h-8 w-8" onClick={() => adjustStock(p, -1)} disabled={stock <= 0}>
+                                  <Minus className="w-3.5 h-3.5" />
                                 </Button>
                                 <Badge
                                   variant={isOut ? "destructive" : isLow ? "secondary" : "outline"}
-                                  className={`min-w-[48px] justify-center font-mono text-xs h-7 ${isLow ? "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-200" : ""}`}
+                                  className={`min-w-[56px] justify-center font-mono text-sm h-8 px-2 ${isLow ? "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-200" : ""}`}
                                 >
                                   {stock}
                                 </Badge>
-                                <Button variant="outline" size="icon-xs" className="h-7 w-7" onClick={() => adjustStock(p, 1)}>
-                                  <Plus className="w-3 h-3" />
+                                <Button variant="outline" size="icon-xs" className="h-8 w-8" onClick={() => adjustStock(p, 1)}>
+                                  <Plus className="w-3.5 h-3.5" />
                                 </Button>
                               </div>
-                              {isLow && <div className="text-[10px] text-amber-600 font-medium mt-1">Low</div>}
-                              {isOut && <div className="text-[10px] text-destructive font-medium mt-1">Out</div>}
+                              {isLow && <div className="text-xs text-amber-600 font-medium mt-1">Low</div>}
+                              {isOut && <div className="text-xs text-destructive font-medium mt-1">Out</div>}
                             </TableCell>
-                            <TableCell className="hidden lg:table-cell text-xs font-mono text-muted-foreground max-w-[140px] truncate">
+                            <TableCell className="hidden lg:table-cell text-sm font-mono text-muted-foreground max-w-[160px] truncate">
                               {p.barcode || "—"}
                             </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-1">
-                                <Button variant="outline" size="icon-xs" className="h-7 w-7" onClick={() => openEdit(p)}>
-                                  <Pencil className="w-3.5 h-3.5" />
+                            <TableCell className="text-right px-4">
+                              <div className="flex justify-end gap-1.5">
+                                <Button
+                                  variant="outline"
+                                  size="icon-xs"
+                                  className="h-8 w-8 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300"
+                                  onClick={() => openRestock(p)}
+                                  title="Restock — add quantity & update cost/price"
+                                >
+                                  <PackagePlus className="w-4 h-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon-xs" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(p)}>
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                <Button variant="outline" size="icon-xs" className="h-8 w-8" onClick={() => openEdit(p)} title="Edit product">
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon-xs" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(p)} title="Delete">
+                                  <Trash2 className="w-4 h-4" />
                                 </Button>
                               </div>
                             </TableCell>
@@ -561,7 +630,99 @@ export default function InventoryPage() {
           <DialogFooter className="p-4 gap-3 sm:justify-end">
             <Button variant="outline" onClick={() => setOpen(false)} disabled={saving} className="h-9 px-6 min-w-[96px]">Cancel</Button>
             <Button onClick={handleSave} disabled={saving} className="bg-green-700 hover:bg-green-800 text-white h-9 px-6 min-w-[130px]">
-              {saving ? "Saving..." : editing ? "Update Product" : "Add Product"}
+              {saving ? (editing ? "Saving..." : "Adding...") : editing ? "Done Editing" : "Add Product"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Restock Dialog — solves low-stock buy at new cost: Tata Salt 40 qty example */}
+      <Dialog open={restockOpen} onOpenChange={(v) => !v && setRestockOpen(false)}>
+        <DialogContent className="sm:max-w-[460px] p-0 gap-0 overflow-hidden">
+          <DialogHeader className="p-5 pb-3">
+            <DialogTitle className="text-[14px] flex items-center gap-2">
+              <PackagePlus className="w-4 h-4 text-green-700" /> Restock Product
+            </DialogTitle>
+            <DialogDescription className="text-[11px]">
+              Add new purchase quantity — stock will be added, price/rate updated if you change it
+            </DialogDescription>
+          </DialogHeader>
+          {restockProduct && (
+            <div className="px-5 pb-5 space-y-3">
+              <Card className="py-0 bg-muted/20">
+                <CardContent className="p-3 space-y-1.5">
+                  <div className="font-semibold text-sm leading-tight">{restockProduct.name}</div>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <Badge variant="outline" className="text-[11px]">{restockProduct.category}</Badge>
+                    <Badge variant={restockProduct.is_loose ? "secondary" : "outline"} className="text-[11px]">{restockProduct.is_loose ? "Loose • per kg" : "Packaged"}</Badge>
+                    <span className="text-muted-foreground">Current stock:</span>
+                    <Badge variant={(restockProduct.stockQuantity ?? 0) <= 0 ? "destructive" : (restockProduct.stockQuantity ?? 0) < 10 ? "secondary" : "outline"} className="font-mono text-xs">
+                      {restockProduct.stockQuantity ?? 0} {restockProduct.unit || "pcs"}
+                    </Badge>
+                  </div>
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Current {restockProduct.is_loose ? "rate" : "price"}:</span>{" "}
+                    <span className="font-bold">{restockProduct.is_loose ? `${formatINR(restockProduct.rate_per_kg || 0)}/kg` : formatINR(restockProduct.price || 0)}</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Example: Tata Salt low (3 left) → buy 40 new → enter 40 below. If supplier price changed, update price field too.
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-1">
+                <Label className="text-[11px]">Add Quantity *</Label>
+                <Input
+                  type="number"
+                  value={restockQty}
+                  onChange={(e) => setRestockQty(e.target.value)}
+                  placeholder="e.g., 40"
+                  className="h-8 text-xs"
+                  autoFocus
+                />
+                {restockQty && !isNaN(Number(restockQty)) && Number(restockQty) > 0 && restockProduct && (
+                  <div className="text-[11px] font-medium text-green-700">
+                    New stock: {restockProduct.stockQuantity ?? 0} + {Number(restockQty)} = {(restockProduct.stockQuantity ?? 0) + Number(restockQty)} {restockProduct.unit || "pcs"}
+                  </div>
+                )}
+              </div>
+
+              {restockProduct.is_loose ? (
+                <div className="space-y-1">
+                  <Label className="text-[11px]">New Rate per kg (₹) <span className="text-muted-foreground font-normal">— leave as is if cost same</span></Label>
+                  <Input type="number" value={restockRate} onChange={(e) => setRestockRate(e.target.value)} placeholder={String(restockProduct.rate_per_kg ?? "")} className="h-8 text-xs" />
+                  {restockRate && restockRate !== String(restockProduct.rate_per_kg ?? "") && (
+                    <div className="text-[11px] text-amber-600">{formatINR(restockProduct.rate_per_kg || 0)}/kg → {formatINR(Number(restockRate) || 0)}/kg</div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Label className="text-[11px]">New Selling Price (₹) <span className="text-muted-foreground font-normal">— leave as is if cost same</span></Label>
+                  <Input type="number" value={restockPrice} onChange={(e) => setRestockPrice(e.target.value)} placeholder={String(restockProduct.price ?? "")} className="h-8 text-xs" />
+                  {restockPrice && restockPrice !== String(restockProduct.price ?? "") && (
+                    <div className="text-[11px] text-amber-600">{formatINR(restockProduct.price || 0)} → {formatINR(Number(restockPrice) || 0)}</div>
+                  )}
+                </div>
+              )}
+
+              <div className="rounded-lg bg-blue-50 border border-blue-200 px-2.5 py-2 text-[11px] text-blue-800 dark:bg-blue-950/30 dark:border-blue-900 dark:text-blue-200 space-y-1">
+                <div className="font-semibold">How it works:</div>
+                <div>• <span className="font-medium">Add Product</span> = brand new SKU (first time).</div>
+                <div>• <span className="font-medium">Restock (+)</span> = existing item, add qty (e.g., 40) + update price if your purchase cost changed.</div>
+                <div>• <span className="font-medium">Done Editing</span> = fix name/category/barcode typo without changing stock logic.</div>
+              </div>
+
+              {restockError && (
+                <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-2.5 py-1.5 text-xs font-medium text-destructive">
+                  {restockError}
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter className="p-4 gap-3 sm:justify-end">
+            <Button variant="outline" onClick={() => setRestockOpen(false)} disabled={restockSaving} className="h-9 px-6 min-w-[96px]">Cancel</Button>
+            <Button onClick={handleRestock} disabled={restockSaving} className="bg-green-700 hover:bg-green-800 text-white h-9 px-6 min-w-[130px]">
+              {restockSaving ? "Restocking..." : `Add ${restockQty ? Number(restockQty) : ""} to Stock`}
             </Button>
           </DialogFooter>
         </DialogContent>
