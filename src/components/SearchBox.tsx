@@ -20,6 +20,7 @@ type SearchBoxProps = {
   disabled?: boolean;
   autoFocus?: boolean;
   variant?: "card" | "plain";
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 };
 
 export default function SearchBox({
@@ -36,6 +37,7 @@ export default function SearchBox({
   disabled,
   autoFocus,
   variant = "card",
+  onKeyDown,
 }: SearchBoxProps) {
   const [internalValue, setInternalValue] = useState(defaultValue);
   const isControlled = controlledValue !== undefined;
@@ -132,7 +134,7 @@ export default function SearchBox({
   const content = (
     <>
       {leftIcon && (
-        <div className="w-8 h-8 rounded-lg bg-primary/10 border flex items-center justify-center text-primary shrink-0">
+        <div className="w-7 h-7 rounded-md bg-primary/10 border flex items-center justify-center text-primary shrink-0 !min-h-0 !min-w-0">
           {leftIcon}
         </div>
       )}
@@ -142,8 +144,9 @@ export default function SearchBox({
           value={value}
           onChange={(e) => handleChange(e.target.value)}
           onFocus={handleFocus}
+          onKeyDown={onKeyDown}
           placeholder={placeholder}
-          className="flex-1 border-0 shadow-none focus-visible:ring-0 h-9"
+          className="flex-1 border-0 shadow-none focus-visible:ring-0 h-7 !min-h-0 !min-w-0 text-sm"
           disabled={disabled}
           autoFocus={autoFocus}
         />
@@ -151,12 +154,12 @@ export default function SearchBox({
       <Button
         variant="ghost"
         size="icon-sm"
-        className="shrink-0"
+        className="shrink-0 !min-h-0 !min-w-0 h-7 w-7"
         onClick={handleSearchClick}
         aria-label="Search"
         type="button"
       >
-        <Search className="w-4 h-4" />
+        <Search className="w-3.5 h-3.5" />
       </Button>
     </>
   );
@@ -166,8 +169,8 @@ export default function SearchBox({
   }
 
   return (
-    <Card className="w-full py-0 border-primary/20 ring-1 ring-primary/5">
-      <CardContent className="p-1.5 flex items-center gap-2">{content}</CardContent>
+    <Card className="w-full py-0 border-primary/20 ring-1 ring-primary/5 rounded-xl shadow-sm">
+      <CardContent className="p-1.5 flex flex-row items-center gap-2 !gap-2">{content}</CardContent>
     </Card>
   );
 }

@@ -22,6 +22,7 @@ export default function PaymentModal() {
     setCurrentCustomer,
     clearCart,
     calculateGrandTotal,
+    recordRecentOnSale,
   } = useCartStore();
 
   const [customerName, setCustomerName] = useState("");
@@ -50,18 +51,24 @@ export default function PaymentModal() {
   const buildReceiptItems = () =>
     items.map((item) => ({
       name: item.name,
-      unit: item.isCustom ? item.unit : `${item.quantity || item.weight}`,
+      qty: item.isCustom ? String(item.unit) : item.is_loose || item.weight ? `${item.weight ?? 0}` : `${item.quantity ?? 1}`,
+      quantity: item.quantity ?? null,
+      weight: item.weight ?? null,
+      price: item.price,
+      perUnit: item.isCustom ? item.unit : item.is_loose || item.weight ? "kg" : item.unit || "pcs",
+      unit: item.unit,
+      isCustom: item.isCustom,
       lineTotal: item.lineTotal,
     }));
 
   const printReceipt = (
-    orderItems: { name: string; unit: string; lineTotal: number }[],
+    orderItems: { name: string; lineTotal: number; qty?: string; rate?: string; price?: number; perUnit?: string; unit?: string; quantity?: number | null; weight?: number | null; isCustom?: boolean }[],
     total: number,
     disc: number,
     custName?: string,
     orderNumber?: string
   ) => {
-    const html = generateReceiptHTML(orderItems, total, disc, custName, orderNumber ?? `ORD-${Date.now().toString(36).toUpperCase()}`);
+    const html = generateReceiptHTML(orderItems as any, total, disc, custName, orderNumber ?? `ORD-${Date.now().toString(36).toUpperCase()}`);
     const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.write(html);
@@ -97,6 +104,7 @@ export default function PaymentModal() {
     const orderNumber = (saved as unknown as { orderNumber?: string })?.orderNumber;
     const orderItems = buildReceiptItems();
     printReceipt(orderItems, grandTotal, discount, currentCustomer?.name, orderNumber);
+    recordRecentOnSale();
     closePaymentModal();
     clearCart();
     setSaving(false);
@@ -112,6 +120,7 @@ export default function PaymentModal() {
     const orderItems = buildReceiptItems();
     setTimeout(() => {
       printReceipt(orderItems, grandTotal, discount, currentCustomer?.name, orderNumber);
+      recordRecentOnSale();
       closePaymentModal();
       clearCart();
       setSaving(false);
@@ -157,6 +166,7 @@ export default function PaymentModal() {
     const orderNumber = (saved as unknown as { orderNumber?: string })?.orderNumber;
     const orderItems = buildReceiptItems();
     printReceipt(orderItems, grandTotal, discount, name, orderNumber);
+    recordRecentOnSale();
     closePaymentModal();
     clearCart();
     setSaving(false);
@@ -173,6 +183,7 @@ export default function PaymentModal() {
     const orderItems = buildReceiptItems();
     const label = currentCustomer?.name ? `${currentCustomer.name} (Split: Cash ${formatINR(cash)} + UPI ${formatINR(upi)})` : `Split: Cash ${formatINR(cash)} + UPI ${formatINR(upi)}`;
     printReceipt(orderItems, grandTotal, discount, label, orderNumber);
+    recordRecentOnSale();
     closePaymentModal();
     clearCart();
     setSaving(false);

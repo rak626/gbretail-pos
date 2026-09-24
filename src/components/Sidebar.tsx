@@ -14,6 +14,7 @@ import {
   X,
   BookOpen,
   BarChart3,
+  Users,
 } from "lucide-react";
 
 type NavItem = {
@@ -27,6 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/orders", label: "Orders", icon: Receipt },
   { href: "/inventory", label: "Inventory", icon: LayoutDashboard },
   { href: "/ledger", label: "Ledger", icon: BookOpen },
+  { href: "/customers", label: "Customers", icon: Users },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
 ];
 

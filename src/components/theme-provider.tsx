@@ -15,7 +15,7 @@ type ThemeProviderState = {
 const ThemeContext = React.createContext<ThemeProviderState | undefined>(undefined)
 
 const STORAGE_KEY = "theme"
-const DEFAULT_THEME = "light"
+const DEFAULT_THEME = "dark"
 const THEMES = ["light", "dark"] as const
 
 function getSystemTheme(): Theme {

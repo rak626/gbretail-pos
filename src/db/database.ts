@@ -34,10 +34,16 @@ export interface Customer {
   id: string;
   name: string;
   phone: string | null;
+  email?: string | null;
+  address?: string | null;
+  notes?: string | null;
+  creditLimit?: number | null;
   balance: number;
   totalSpent?: number;
   totalOrders?: number;
+  firstOrderAt?: number | string | Date | null;
   lastOrderAt?: number | string | Date | null;
+  deletedAt?: number | string | Date | null;
   createdAt: number | string | Date;
   updatedAt: number | string | Date;
 }
@@ -70,6 +76,11 @@ export class GbretailDB extends Dexie {
       orders: "id, status, createdAt, paymentMethod, syncedAt",
       customers: "id, name, phone, balance",
     });
+    this.version(2).stores({
+      products: "id, name, category, barcode, is_loose",
+      orders: "id, status, createdAt, paymentMethod, syncedAt",
+      customers: "id, name, phone, balance, deletedAt, lastOrderAt, totalSpent",
+    }).upgrade(() => {});
   }
 }
 

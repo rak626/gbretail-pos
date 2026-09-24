@@ -55,7 +55,7 @@ function Delta({ value }: { value: number | null | undefined }) {
   const up = value > 0;
   const down = value < 0;
   return (
-    <span className={`inline-flex items-center gap-0.5 text-[11px] font-bold ${up ? "text-green-600" : down ? "text-destructive" : "text-muted-foreground"}`}>
+    <span className={`inline-flex items-center gap-0.5 text-[11px] font-bold ${up ? "text-primary" : down ? "text-destructive" : "text-muted-foreground"}`}>
       {up ? <TrendingUp className="w-3 h-3" /> : down ? <TrendingDown className="w-3 h-3" /> : null}
       {value > 0 ? "+" : ""}{value.toFixed(1)}%
     </span>
@@ -128,10 +128,10 @@ export default function AnalyticsPage() {
         <div className="max-w-7xl mx-auto space-y-4">
           {/* Header */}
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-3">
-              <Link href="/"><Button variant="outline" size="sm"><ArrowLeft className="w-4 h-4" /> Billing</Button></Link>
-              <h1 className="text-lg font-bold flex items-center gap-2"><BarChart3 className="w-5 h-5 text-primary" /> Analytics</h1>
-              {data?.range && <Badge variant="secondary" className="hidden sm:flex">{data.range.label} • {data.range.granularity}</Badge>}
+            <div className="flex items-center gap-2.5">
+              <Link href="/"><Button variant="outline" size="sm" className="rounded-full gap-1.5"><ArrowLeft className="w-4 h-4" /> Billing</Button></Link>
+              <h1 className="text-base font-semibold flex items-center gap-1.5"><BarChart3 className="w-4 h-4 text-primary" /> Analytics</h1>
+              {data?.range && <Badge variant="secondary" className="hidden sm:flex rounded-full">{data.range.label} • {data.range.granularity}</Badge>}
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={() => window.open(exportUrl, "_blank")}><Download className="w-4 h-4" /> CSV</Button>
@@ -215,7 +215,7 @@ export default function AnalyticsPage() {
                 </Card>
                 <Card className="py-0 border-amber-200 bg-amber-50/30 dark:bg-amber-950/10">
                   <CardContent className="p-3">
-                    <div className="flex items-center justify-between"><span className="text-[11px] text-amber-700 dark:text-amber-300 uppercase font-medium">Discount</span><Tag className="w-4 h-4 text-amber-600" /></div>
+                    <div className="flex items-center justify-between"><span className="text-[11px] text-amber-700 dark:text-amber-300 uppercase font-medium">Discount</span><Tag className="w-4 h-4 text-primary" /></div>
                     <div className="text-sm font-black leading-none mt-1 text-amber-700">{formatINR(kpis?.discount ?? 0)}</div>
                     <div className="text-[11px] text-muted-foreground">{kpis?.gross ? ((kpis.discount/kpis.gross)*100).toFixed(1):0}% of gross</div>
                   </CardContent>
@@ -228,10 +228,10 @@ export default function AnalyticsPage() {
                     <div className="mt-1"><Delta value={kpis?.delta?.netRevenue} /></div>
                   </CardContent>
                 </Card>
-                <Card className="py-0 border-green-200 bg-green-50/40 dark:bg-green-950/20">
+                <Card className="py-0 border-primary/20 bg-primary/5/40 dark:bg-primary/10">
                   <CardContent className="p-3">
-                    <div className="flex items-center justify-between"><span className="text-[11px] text-green-700 dark:text-green-300 uppercase font-medium">Profit</span><TrendingUp className="w-4 h-4 text-green-600" /></div>
-                    <div className="text-sm font-black leading-none mt-1 text-green-700">{formatINR(kpis?.profit ?? 0)}</div>
+                    <div className="flex items-center justify-between"><span className="text-[11px] text-primary dark:text-primary uppercase font-medium">Profit</span><TrendingUp className="w-4 h-4 text-primary" /></div>
+                    <div className="text-sm font-black leading-none mt-1 text-primary">{formatINR(kpis?.profit ?? 0)}</div>
                     <div className="text-[11px] text-muted-foreground">net = grossProfit - discount</div>
                     <div className="mt-1"><Delta value={kpis?.delta?.profit} /></div>
                   </CardContent>
@@ -353,7 +353,7 @@ export default function AnalyticsPage() {
                                 <TableRow key={c.category}>
                                   <TableCell className="text-xs font-medium">{c.category}</TableCell>
                                   <TableCell className="text-right text-xs font-bold">{formatINR(c.netRevenue)}</TableCell>
-                                  <TableCell className={`text-right text-xs font-bold ${c.profit>=0?"text-green-600":"text-destructive"}`}>{formatINR(c.profit)}</TableCell>
+                                  <TableCell className={`text-right text-xs font-bold ${c.profit>=0?"text-primary":"text-destructive"}`}>{formatINR(c.profit)}</TableCell>
                                   <TableCell className="text-right text-xs">{c.marginPct.toFixed(1)}%</TableCell>
                                 </TableRow>
                               ))}
@@ -399,7 +399,7 @@ export default function AnalyticsPage() {
                                   <TableCell><div className="text-xs font-medium leading-tight truncate max-w-[160px]">{p.name}</div><div className="text-[11px] text-muted-foreground">{p.category}</div></TableCell>
                                   <TableCell className="text-right text-xs font-mono">{p.qty}</TableCell>
                                   <TableCell className="text-right text-xs font-bold">{formatINR(p.gross)}</TableCell>
-                                  <TableCell className={`text-right text-xs font-bold ${p.profit>=0?"text-green-600":"text-destructive"}`}>{formatINR(p.profit)}</TableCell>
+                                  <TableCell className={`text-right text-xs font-bold ${p.profit>=0?"text-primary":"text-destructive"}`}>{formatINR(p.profit)}</TableCell>
                                 </TableRow>
                               ))}
                             </TableBody>
@@ -420,7 +420,7 @@ export default function AnalyticsPage() {
                 <CardContent className="p-3 space-y-3">
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     <Card className="py-0 bg-muted/20"><CardContent className="p-2.5"><div className="text-[11px] text-muted-foreground uppercase">Created</div><div className="text-sm font-black">{ledger?.created?.count ?? 0} • {formatINR(ledger?.created?.amount ?? 0)}</div></CardContent></Card>
-                    <Card className="py-0 bg-green-50 border-green-200 dark:bg-green-950/20"><CardContent className="p-2.5"><div className="text-[11px] text-green-700 uppercase">Settled</div><div className="text-sm font-black text-green-700">{ledger?.settled?.count ?? 0} • {formatINR(ledger?.settled?.amount ?? 0)}</div></CardContent></Card>
+                    <Card className="py-0 bg-primary/5 border-primary/20 dark:bg-primary/10"><CardContent className="p-2.5"><div className="text-[11px] text-primary uppercase">Settled</div><div className="text-sm font-black text-primary">{ledger?.settled?.count ?? 0} • {formatINR(ledger?.settled?.amount ?? 0)}</div></CardContent></Card>
                     <Card className="py-0 border-amber-200 bg-amber-50/40"><CardContent className="p-2.5"><div className="text-[11px] text-amber-700 uppercase">Pending</div><div className="text-sm font-black text-amber-700">{ledger?.pending?.count ?? 0} • {formatINR(ledger?.pending?.amount ?? 0)}</div></CardContent></Card>
                     <Card className="py-0 border-destructive/20 bg-destructive/5"><CardContent className="p-2.5"><div className="text-[11px] text-destructive uppercase">Overdue</div><div className="text-sm font-black text-destructive flex items-center gap-1"><AlertTriangle className="w-3 h-3" />{ledger?.overdue?.count ?? 0} • {formatINR(ledger?.overdue?.amount ?? 0)}</div></CardContent></Card>
                     <Card className="py-0"><CardContent className="p-2.5"><div className="text-[11px] text-muted-foreground uppercase">Collection</div><div className="text-sm font-black">{ledger?.collectionRate ?? 0}%</div><div className="text-[11px] text-muted-foreground">Avg {ledger?.avgDaysToSettle ?? "—"} days</div></CardContent></Card>

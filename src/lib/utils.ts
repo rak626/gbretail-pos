@@ -1,9 +1,4 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
+export { cn } from "cn"
 
 export function formatUPIPaymentUrl(amount: number, storeId: string = "store@upi"): string {
   const encodedAmount = amount.toFixed(2);

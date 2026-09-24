@@ -14,10 +14,45 @@ import LooseItemModal from "@/components/LooseItemModal";
 import CustomItemModal from "@/components/CustomItemModal";
 import PaymentModal from "@/components/PaymentModal";
 import AddCustomerDialog from "@/components/AddCustomerDialog";
+import { products as staticProducts } from "@/data/products";
+import { formatINR } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ScanBarcode } from "lucide-react";
 
 export default function Home() {
-  const { looseItemModalOpen, customItemModalOpen, paymentModalOpen } =
+  const { looseItemModalOpen, customItemModalOpen, paymentModalOpen, addItem, openLooseModal, productFreq, recentIds } =
     useCartStore();
+
+  // most frequent: sort staticProducts by freq desc, fallback to original order
+  const mostFrequent = [...staticProducts].sort((a, b) => {
+    const fa = productFreq[a.id] || 0;
+    const fb = productFreq[b.id] || 0;
+    if (fa !== fb) return fb - fa;
+    return 0;
+  });
+  const recentProducts = recentIds
+    .map((id) => staticProducts.find((p) => p.id === id))
+    .filter(Boolean) as typeof staticProducts;
+
+  const handleProductClick = (p: (typeof staticProducts)[number]) => {
+    if ((p as any).is_loose) {
+      openLooseModal(p as any);
+    } else {
+      addItem({
+        productId: p.id,
+        name: p.name,
+        price: (p as any).price || 0,
+        unit: "pcs",
+        quantity: 1,
+        lineTotal: (p as any).price || 0,
+        isCustom: false,
+        is_loose: false,
+        category: (p as any).category,
+        costPrice: (p as any).costPrice ?? 0,
+      });
+    }
+  };
 
   useEffect(() => {
     initializeOfflineDetection();
@@ -30,15 +65,88 @@ export default function Home() {
 
   return (
     <AppShell>
-      <div className="flex-1 flex flex-col gap-3 p-3 overflow-auto min-h-0">
-        <CustomerSection />
-        <SearchBar />
-
-        <div className="grid grid-cols-12 gap-3 items-start">
-          <div className="col-span-12 lg:col-span-8 flex flex-col gap-3">
-            <CartTable />
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="grid grid-cols-12 gap-0 flex-1 min-h-0">
+          {/* Left half: customer + search (small) + products */}
+          <div className="col-span-12 lg:col-span-8 flex flex-col min-h-0 overflow-hidden lg:border-r bg-background">
+            <div className="shrink-0 border-b bg-background flex items-center justify-between gap-2">
+              <div className="w-full max-w-[520px] lg:max-w-[440px]">
+                <CustomerSection compact hideScan />
+              </div>
+              <div className="hidden lg:flex shrink-0 items-center pr-2.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 h-7 rounded-full px-2.5 text-xs font-medium border shadow-none"
+                  onClick={() => window.dispatchEvent(new CustomEvent("focus-barcode"))}
+                >
+                  <ScanBarcode className="w-3.5 h-3.5" /> Scan Barcode
+                </Button>
+              </div>
+            </div>
+            <div className="shrink-0 px-2.5 pt-2 pb-1.5">
+              <SearchBar />
+            </div>
+            <div className="flex-1 overflow-auto px-2.5 pb-2.5 min-h-0 flex flex-col gap-3">
+              {/* Row 1: Most frequent - 15 products */}
+              <div className="space-y-1.5">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-0.5">Most Frequent Products</h3>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+                  {mostFrequent.slice(0, 30).map((p) => (
+                    <Card
+                      key={`freq-${p.id}`}
+                      className="py-0 cursor-pointer hover:border-primary/50 hover:shadow-sm transition-colors"
+                      onClick={() => handleProductClick(p)}
+                    >
+                      <CardContent className="p-2.5">
+                        <div className="text-sm font-medium leading-tight truncate">{p.name}</div>
+                        <div className="text-xs text-muted-foreground mt-1">{formatINR((p as any).price || (p as any).rate_per_kg || 0)}</div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+              {/* Row 2: Recently selected - 5 in one row */}
+              <div className="space-y-1.5">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-0.5">Recent Products</h3>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {recentProducts.slice(0, 5).map((p) => (
+                    <Card
+                      key={`recent-${p.id}`}
+                      className="py-0 cursor-pointer hover:border-primary/50 hover:shadow-sm transition-colors"
+                      onClick={() => handleProductClick(p)}
+                    >
+                      <CardContent className="p-2.5">
+                        <div className="text-[13px] font-medium leading-tight truncate">{p.name}</div>
+                        <div className="text-[11px] text-muted-foreground mt-1 truncate">{formatINR((p as any).price || (p as any).rate_per_kg || 0)}</div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  {recentProducts.length === 0 &&
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <Card key={`recent-empty-${i}`} className="py-0 border-dashed bg-muted/30">
+                        <CardContent className="p-2.5">
+                          <div className="text-[11px] text-muted-foreground leading-tight truncate">No recent</div>
+                          <div className="text-[11px] text-muted-foreground/60 mt-1">—</div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  {recentProducts.length > 0 &&
+                    recentProducts.length < 5 &&
+                    Array.from({ length: 5 - recentProducts.length }).map((_, i) => (
+                      <Card key={`recent-fill-${i}`} className="py-0 border-dashed bg-muted/20">
+                        <CardContent className="p-2.5">
+                          <div className="text-[11px] text-muted-foreground/60 truncate">—</div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="col-span-12 lg:col-span-4 flex flex-col gap-3">
+          {/* Right half: only Cart (no customer/search overlapping) */}
+          <div className="col-span-12 lg:col-span-4 flex flex-col min-h-0 overflow-auto bg-muted/20 p-2.5 gap-2.5">
+            <CartTable />
             <BillSummary />
             <QuickActions />
             <PaymentMethods />

@@ -2,11 +2,11 @@
 import { useState } from "react";
 import { useCartStore } from "@/store/cartStore";
 import { generateReceiptHTML } from "@/lib/print";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Zap, Printer } from "lucide-react";
+import { Printer, ArrowUp } from "lucide-react";
 
 export default function QuickActions() {
   const {
@@ -31,7 +31,13 @@ export default function QuickActions() {
     const grandTotal = calculateGrandTotal();
     const orderItems = items.map((item) => ({
       name: item.name,
-      unit: item.isCustom ? item.unit : `${item.quantity || item.weight}`,
+      qty: item.isCustom ? String(item.unit) : item.is_loose || item.weight ? `${item.weight ?? 0}` : `${item.quantity ?? 1}`,
+      quantity: item.quantity ?? null,
+      weight: item.weight ?? null,
+      price: item.price,
+      perUnit: item.isCustom ? item.unit : item.is_loose || item.weight ? "kg" : item.unit || "pcs",
+      unit: item.unit,
+      isCustom: item.isCustom,
       lineTotal: item.lineTotal,
     }));
     const html = generateReceiptHTML(
@@ -50,13 +56,8 @@ export default function QuickActions() {
   };
 
   return (
-    <Card className="py-0 gap-0">
-      <CardHeader className="py-3 flex-row items-center gap-2">
-        <CardTitle className="flex items-center gap-1 text-sm">
-          <Zap className="w-4 h-4 text-amber-500" /> Quick Actions
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 pb-5">
+    <Card className="py-0 gap-0 rounded-xl shadow-sm border">
+      <CardContent className="space-y-2 p-2.5">
         {showDisc && (
           <div className="flex gap-2">
             <Input
@@ -79,17 +80,17 @@ export default function QuickActions() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="flex gap-2">
           <Button
             variant="secondary"
             onClick={() => setShowDisc((v) => !v)}
-            className="h-9 justify-center gap-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-100 dark:border-amber-800"
+            className="flex-1 min-w-0 h-10 justify-center gap-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-100 dark:border-amber-800 whitespace-nowrap"
           >
             <Badge
               variant="outline"
-              className="bg-white text-amber-800 border-amber-200 text-[10px]"
+              className="bg-white text-amber-800 border-amber-200 text-[10px] rounded-full gap-0.5 px-1.5 py-0"
             >
-              Shift + D
+              <ArrowUp className="w-2.5 h-2.5" /> D
             </Badge>
             Discount
           </Button>
@@ -97,13 +98,13 @@ export default function QuickActions() {
           <Button
             variant="secondary"
             onClick={holdOrder}
-            className="h-9 justify-center gap-1.5 bg-blue-100 hover:bg-blue-200 text-blue-900 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-100 dark:border-blue-800"
+            className="flex-1 min-w-0 h-10 justify-center gap-1.5 rounded-xl bg-blue-100 hover:bg-blue-200 text-blue-900 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-100 dark:border-blue-800 whitespace-nowrap"
           >
             <Badge
               variant="outline"
-              className="bg-white text-blue-800 border-blue-200 text-[10px]"
+              className="bg-white text-blue-800 border-blue-200 text-[10px] rounded-full gap-0.5 px-1.5 py-0"
             >
-              Shift + H
+              <ArrowUp className="w-2.5 h-2.5" /> H
             </Badge>
             Hold Bill
           </Button>
@@ -111,13 +112,13 @@ export default function QuickActions() {
           <Button
             variant="secondary"
             onClick={openCustomModal}
-            className="h-9 justify-center gap-1.5 bg-orange-100 hover:bg-orange-200 text-orange-900 border border-orange-200 dark:bg-orange-900/30 dark:text-orange-100 dark:border-orange-800"
+            className="flex-1 min-w-0 h-10 justify-center gap-1.5 rounded-xl bg-orange-100 hover:bg-orange-200 text-orange-900 border border-orange-200 dark:bg-orange-900/30 dark:text-orange-100 dark:border-orange-800 whitespace-nowrap"
           >
             <Badge
               variant="outline"
-              className="bg-white text-orange-800 border-orange-200 text-[10px]"
+              className="bg-white text-orange-800 border-orange-200 text-[10px] rounded-full gap-0.5 px-1.5 py-0"
             >
-              Shift + X
+              <ArrowUp className="w-2.5 h-2.5" /> X
             </Badge>
             Custom Item
           </Button>
@@ -125,9 +126,9 @@ export default function QuickActions() {
           <Button
             variant="outline"
             onClick={handlePrintBill}
-            className="h-9 justify-center gap-1.5"
+            className="flex-1 min-w-0 h-10 justify-center gap-1.5 rounded-xl whitespace-nowrap"
           >
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline" className="text-[10px] rounded-full px-1.5 py-0">
               P
             </Badge>
             <Printer className="w-3 h-3" />

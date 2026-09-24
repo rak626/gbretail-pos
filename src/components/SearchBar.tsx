@@ -15,8 +15,10 @@ export default function SearchBar() {
   const { searchQuery, setSearchQuery, openLooseModal, addItem } = useCartStore();
   const [results, setResults] = useState<Product[]>([]);
   const [show, setShow] = useState(false);
+  const [activeIndex, setActiveIndex] = useState<number>(-1);
   const ref = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const doSearchApi = useCallback(async (trimmed: string, local: Product[]) => {
     if (trimmed.startsWith(" ") || !trimmed || trimmed.length < 3) return;
@@ -102,6 +104,11 @@ export default function SearchBar() {
     };
   }, []);
 
+  useEffect(() => {
+    if (show && results.length > 0) setActiveIndex(0);
+    else setActiveIndex(-1);
+  }, [show, results]);
+
   const add = (p: Product) => {
     if (p.is_loose) openLooseModal({ ...p, price: p.rate_per_kg || 0, unit: "kg" } as Product);
     else addItem({ productId: p.id, name: p.name, price: p.price || 0, unit: "pcs", quantity: 1, lineTotal: p.price || 0, isCustom: false, is_loose: false, category: p.category, costPrice: (p as any).costPrice ?? 0 });
@@ -109,6 +116,49 @@ export default function SearchBar() {
     setResults([]);
     setShow(false);
   };
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (!show || results.length === 0) {
+        if (e.key === "ArrowDown" && results.length > 0) {
+          e.preventDefault();
+          setShow(true);
+        }
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveIndex((prev) => {
+          const next = prev < results.length - 1 ? prev + 1 : 0;
+          requestAnimationFrame(() => {
+            const el = listRef.current?.querySelector(`[data-index="${next}"]`);
+            el?.scrollIntoView({ block: "nearest" });
+          });
+          return next;
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIndex((prev) => {
+          const next = prev > 0 ? prev - 1 : results.length - 1;
+          requestAnimationFrame(() => {
+            const el = listRef.current?.querySelector(`[data-index="${next}"]`);
+            el?.scrollIntoView({ block: "nearest" });
+          });
+          return next;
+        });
+      } else if (e.key === "Enter") {
+        if (activeIndex >= 0 && activeIndex < results.length) {
+          e.preventDefault();
+          add(results[activeIndex]);
+        }
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setShow(false);
+        setActiveIndex(-1);
+      }
+    },
+    [show, results, activeIndex, add]
+  );
 
   return (
     <Popover
@@ -121,7 +171,7 @@ export default function SearchBar() {
     >
       <PopoverTrigger render={<div className="w-full" />} nativeButton={false}>
           <SearchBox
-            placeholder="Search product or barcode..."
+            placeholder="Scan barcode or type product name..."
             leftIcon={<Barcode className="w-4 h-4" />}
             value={searchQuery}
             onValueChange={handleImmediate}
@@ -129,19 +179,24 @@ export default function SearchBar() {
             onClear={handleClear}
             onFocusSearch={handleFocusSearch}
             inputRef={ref}
+            onKeyDown={handleKeyDown}
           />
       </PopoverTrigger>
       <PopoverContent className="w-[var(--anchor-width)] p-0" align="start" sideOffset={6}>
         <Command shouldFilter={false} className="rounded-lg">
-          <CommandList>
+          <CommandList ref={listRef}>
             {results.length > 0 ? (
               <CommandGroup>
-                {results.map((p) => (
+                {results.map((p, idx) => (
                   <CommandItem
                     key={p.id}
                     value={p.name}
+                    data-index={idx}
                     onSelect={() => add(p)}
-                    className="flex justify-between items-center py-2.5 px-3 aria-selected:bg-accent"
+                    onMouseMove={() => setActiveIndex(idx)}
+                    data-selected={activeIndex === idx ? "true" : undefined}
+                    aria-selected={activeIndex === idx}
+                    className={`flex justify-between items-center py-2.5 px-3 aria-selected:bg-accent ${activeIndex === idx ? "bg-accent text-accent-foreground" : ""}`}
                   >
                     <span className="text-sm font-medium flex items-center gap-2 min-w-0">
                       <span className="truncate">{p.name}</span>

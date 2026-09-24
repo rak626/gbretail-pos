@@ -35,6 +35,8 @@ interface CartState {
   printReceipt: boolean;
   activeModal: string | null;
   hasHydrated: boolean;
+  productFreq: Record<string, number>;
+  recentIds: string[];
 
   addItem: (item: CartItem) => void;
   removeItem: (index: number) => void;
@@ -59,6 +61,7 @@ interface CartState {
   closeAddCustomerModal: () => void;
   calculateGrandTotal: () => number;
   setHasHydrated: (v: boolean) => void;
+  recordRecentOnSale: () => void;
 }
 
 export const useCartStore = create<CartState>()(
@@ -80,17 +83,27 @@ export const useCartStore = create<CartState>()(
       printReceipt: false,
       activeModal: null,
       hasHydrated: false,
+      productFreq: {},
+      recentIds: [],
 
       addItem: (item) =>
-        set((state) => ({
-          items: [...state.items, item],
-          activeModal: null,
-          looseItemModalOpen: false,
-          customItemModalOpen: false,
-          paymentModalOpen: false,
-          addCustomerModalOpen: false,
-          printReceipt: false,
-        })),
+        set((state) => {
+          const id = item.productId;
+          let nextFreq = state.productFreq;
+          if (id) {
+            nextFreq = { ...state.productFreq, [id]: (state.productFreq[id] || 0) + 1 };
+          }
+          return {
+            items: [...state.items, item],
+            productFreq: nextFreq,
+            activeModal: null,
+            looseItemModalOpen: false,
+            customItemModalOpen: false,
+            paymentModalOpen: false,
+            addCustomerModalOpen: false,
+            printReceipt: false,
+          };
+        }),
 
       removeItem: (index) =>
         set((state) => ({
@@ -208,6 +221,16 @@ export const useCartStore = create<CartState>()(
         return Math.max(0, subtotal - state.discount);
       },
       setHasHydrated: (v) => set({ hasHydrated: v }),
+      recordRecentOnSale: () =>
+        set((state) => {
+          let recent = [...state.recentIds];
+          for (const item of state.items) {
+            const id = item.productId;
+            if (!id) continue;
+            recent = [id, ...recent.filter((r) => r !== id)];
+          }
+          return { recentIds: recent.slice(0, 10) };
+        }),
     }),
     {
       name: "gbretail-cart",
@@ -216,6 +239,8 @@ export const useCartStore = create<CartState>()(
         discount: state.discount,
         heldOrders: state.heldOrders,
         currentCustomer: state.currentCustomer,
+        productFreq: state.productFreq,
+        recentIds: state.recentIds,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);

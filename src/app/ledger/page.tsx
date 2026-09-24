@@ -265,18 +265,18 @@ export default function LedgerPage() {
         <div className="max-w-6xl mx-auto space-y-3">
           {/* header */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3">
-              <Link href="/"><Button variant="outline" size="sm"><ArrowLeft className="w-4 h-4" /> Billing</Button></Link>
-              <h1 className="text-lg font-bold flex items-center gap-2"><BookOpen className="w-5 h-5 text-primary" /> Ledger — Khata</h1>
-              <Badge variant="secondary" className="hidden sm:inline-flex">{total} entries</Badge>
+            <div className="flex items-center gap-2.5">
+              <Link href="/"><Button variant="outline" size="sm" className="rounded-full gap-1.5"><ArrowLeft className="w-4 h-4" /> Billing</Button></Link>
+              <h1 className="text-base font-semibold flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-primary" /> Ledger — Khata</h1>
+              <Badge variant="secondary" className="hidden sm:inline-flex rounded-full">{total} entries</Badge>
             </div>
-            <Button onClick={() => setAddOpen(true)} className="bg-violet-600 hover:bg-violet-700 text-white shrink-0"><Plus className="w-4 h-4" /> Add Khata</Button>
+            <Button onClick={() => setAddOpen(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 rounded-full gap-1.5"><Plus className="w-4 h-4" /> Add Khata</Button>
           </div>
 
           {/* stats — Due Today spotlight */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Card className="py-0 gap-0 border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900">
-              <CardContent className="p-3.5 flex items-center gap-3">
+              <CardContent className="p-3.5 flex flex-row items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0"><Calendar className="w-5 h-5" /></div>
                 <div className="min-w-0 flex-1">
                   <div className="text-[11px] uppercase tracking-wide font-semibold text-amber-800 dark:text-amber-200">Due Today</div>
@@ -287,7 +287,7 @@ export default function LedgerPage() {
               </CardContent>
             </Card>
             <Card className="py-0 gap-0 border-destructive/20 bg-destructive/5">
-              <CardContent className="p-3.5 flex items-center gap-3">
+              <CardContent className="p-3.5 flex flex-row items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-destructive text-destructive-foreground flex items-center justify-center shrink-0"><AlertTriangle className="w-5 h-5" /></div>
                 <div className="min-w-0 flex-1">
                   <div className="text-[11px] uppercase tracking-wide font-semibold text-destructive">Overdue</div>
@@ -297,7 +297,7 @@ export default function LedgerPage() {
               </CardContent>
             </Card>
             <Card className="py-0 gap-0">
-              <CardContent className="p-3.5 flex items-center gap-3">
+              <CardContent className="p-3.5 flex flex-row items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 border flex items-center justify-center text-primary shrink-0"><Wallet className="w-5 h-5" /></div>
                 <div className="min-w-0 flex-1">
                   <div className="text-[11px] uppercase tracking-wide font-semibold text-muted-foreground">Total Pending</div>
@@ -340,7 +340,7 @@ export default function LedgerPage() {
           <Card className="py-0 overflow-hidden">
             <CardHeader className="py-3 border-b flex-row items-center justify-between bg-muted/20">
               <CardTitle className="text-sm flex items-center gap-2">
-                {filter === "dueToday" ? <><Calendar className="w-4 h-4 text-amber-600" /> Due Today — collect today</> : filter === "overdue" ? <><AlertTriangle className="w-4 h-4 text-destructive" /> Overdue — follow up</> : filter === "pending" ? <><Clock3 className="w-4 h-4 text-primary" /> Pending dues</> : filter === "settled" ? <><CheckCircle2 className="w-4 h-4 text-green-600" /> Settled</> : <><BookOpen className="w-4 h-4 text-primary" /> All entries</>}
+                {filter === "dueToday" ? <><Calendar className="w-4 h-4 text-amber-600" /> Due Today — collect today</> : filter === "overdue" ? <><AlertTriangle className="w-4 h-4 text-destructive" /> Overdue — follow up</> : filter === "pending" ? <><Clock3 className="w-4 h-4 text-primary" /> Pending dues</> : filter === "settled" ? <><CheckCircle2 className="w-4 h-4 text-primary" /> Settled</> : <><BookOpen className="w-4 h-4 text-primary" /> All entries</>}
                 <Badge variant="outline" className="font-normal text-xs">{entries.length} {entries.length === 1 ? "entry" : "entries"}</Badge>
               </CardTitle>
               <div className="text-xs text-muted-foreground hidden sm:block">{loading && "loading..."}</div>
@@ -364,7 +364,7 @@ export default function LedgerPage() {
                     <Button variant="outline" size="sm" className="mt-3" onClick={() => switchFilter("pending")}>View all pending ({stats.pending.count})</Button>
                   )}
                   {filter !== "dueToday" && (
-                    <Button onClick={() => setAddOpen(true)} size="sm" className="mt-3 bg-violet-600 hover:bg-violet-700 text-white"><Plus className="w-4 h-4" /> Add ₹200 khata</Button>
+                    <Button onClick={() => setAddOpen(true)} size="sm" className="mt-3 bg-primary hover:bg-primary/90 text-white"><Plus className="w-4 h-4" /> Add ₹200 khata</Button>
                   )}
                 </div>
               ) : (
@@ -416,11 +416,11 @@ export default function LedgerPage() {
                             <TableCell className="hidden md:table-cell">
                               {e.status === "pending" ? (
                                 isOverdue ? <Badge variant="destructive" className="text-[11px]"><AlertTriangle className="w-3 h-3" /> Overdue</Badge> : isDueToday ? <Badge className="bg-amber-600 text-white text-[11px]">Due today</Badge> : <Badge variant="secondary" className="text-[11px]">Pending</Badge>
-                              ) : <Badge className="bg-green-600 text-white text-[11px]"><CheckCircle2 className="w-3 h-3" /> Settled</Badge>}
+                              ) : <Badge className="bg-primary text-white text-[11px]"><CheckCircle2 className="w-3 h-3" /> Settled</Badge>}
                             </TableCell>
                             <TableCell className="text-right">
                               {e.status === "pending" ? (
-                                <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white gap-1" onClick={() => handleSettle(e)}>
+                                <Button size="sm" className="h-7 text-xs bg-primary hover:bg-primary text-white gap-1" onClick={() => handleSettle(e)}>
                                   <CheckCircle2 className="w-3.5 h-3.5" /> Settle
                                 </Button>
                               ) : (
@@ -449,7 +449,7 @@ export default function LedgerPage() {
       <Dialog open={addOpen} onOpenChange={(v) => !v && setAddOpen(false)}>
         <DialogContent className="sm:max-w-[480px] p-0 gap-0 overflow-hidden">
           <DialogHeader className="p-5 pb-3">
-            <DialogTitle className="text-sm flex items-center gap-2"><BookOpen className="w-4 h-4 text-violet-600" /> Add Khata — manual credit</DialogTitle>
+            <DialogTitle className="text-sm flex items-center gap-2"><BookOpen className="w-4 h-4 text-primary" /> Add Khata — manual credit</DialogTitle>
             <DialogDescription className="text-[11px]">E.g., ₹200 for 7 days. Pick customer, amount &amp; term. Due date auto-calculated.</DialogDescription>
           </DialogHeader>
           <div className="px-5 pb-5 space-y-3">
@@ -457,13 +457,13 @@ export default function LedgerPage() {
             <div className="space-y-1.5">
               <Label className="text-[11px] font-semibold">Customer *</Label>
               {selectedCustomer ? (
-                <div className="flex items-center gap-2 h-9 px-3 rounded-md border bg-violet-50 border-violet-200 dark:bg-violet-950/30 dark:border-violet-900 text-sm">
+                <div className="flex items-center gap-2 h-9 px-3 rounded-md border bg-primary/5 border-primary/20 dark:bg-primary/10 dark:border-primary/20 text-sm">
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold truncate text-xs">{selectedCustomer.name}</div>
                     {selectedCustomer.phone && <div className="text-[11px] text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" /> {selectedCustomer.phone}</div>}
                   </div>
                   <Badge variant="secondary" className="text-[11px]">Due ₹{selectedCustomer.balance.toFixed(0)}</Badge>
-                  <Button variant="ghost" size="icon-xs" className="h-6 w-6 rounded-full" onClick={clearSelectedCustomer}>✕</Button>
+                  <Button variant="ghost" size="icon-xs" className="h-6 w-6 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={clearSelectedCustomer} aria-label="Clear selection"><Trash2 className="w-4 h-4" /></Button>
                 </div>
               ) : (
                 <Popover open={showCustDropdown} onOpenChange={(o) => { if (!o) setShowCustDropdown(false); }}>
@@ -513,7 +513,7 @@ export default function LedgerPage() {
                   <Input value={manualPhone} onChange={(e) => setManualPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="Phone (10 digits)" className="h-8 text-xs font-mono" />
                 </div>
               )}
-              {!selectedCustomer && manualName.trim() && <div className="text-[11px] text-blue-600">New customer will be created: {manualName.trim()} {manualPhone ? `• ${manualPhone}` : ""}</div>}
+              {!selectedCustomer && manualName.trim() && <div className="text-[11px] text-primary">New customer will be created: {manualName.trim()} {manualPhone ? `• ${manualPhone}` : ""}</div>}
             </div>
 
             <div className="space-y-1">
@@ -530,7 +530,7 @@ export default function LedgerPage() {
               <Label className="text-[11px] font-semibold">Credit term *</Label>
               <div className="grid grid-cols-4 gap-1.5">
                 {TERM_OPTIONS.map((t) => (
-                  <Button key={t.value} type="button" variant={term === t.value ? "default" : "outline"} size="sm" className={`h-8 text-xs ${term === t.value ? "bg-violet-600 hover:bg-violet-700 text-white" : ""}`} onClick={() => setTerm(t.value)}>
+                  <Button key={t.value} type="button" variant={term === t.value ? "default" : "outline"} size="sm" className={`h-8 text-xs ${term === t.value ? "bg-primary hover:bg-primary/90 text-white" : ""}`} onClick={() => setTerm(t.value)}>
                     {t.label}
                   </Button>
                 ))}
@@ -557,7 +557,7 @@ export default function LedgerPage() {
           </div>
           <DialogFooter className="p-4 gap-3 sm:justify-end">
             <Button variant="outline" onClick={() => setAddOpen(false)} disabled={saving} className="h-9 px-6">Cancel</Button>
-            <Button onClick={handleCreate} disabled={saving} className="bg-violet-600 hover:bg-violet-700 text-white h-9 px-6 min-w-[140px]">
+            <Button onClick={handleCreate} disabled={saving} className="bg-primary hover:bg-primary/90 text-white h-9 px-6 min-w-[140px]">
               {saving ? "Adding..." : `Add ${amountStr ? formatINR(parseFloat(amountStr) || 0) : "Khata"}`}
             </Button>
           </DialogFooter>

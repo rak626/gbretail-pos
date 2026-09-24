@@ -47,10 +47,59 @@ export async function fetchCustomers(q?: string, limit = 50, opts?: { signal?: A
   return data.customers as import("@/db/database").Customer[];
 }
 
-export async function createCustomer(payload: { name: string; phone?: string; balance?: number }) {
+export async function fetchCustomersPaged(params: {
+  q?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: string;
+  hasBalance?: string;
+  activeWithinDays?: number;
+  signal?: AbortSignal;
+}) {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set("q", params.q);
+  if (params.page) qs.set("page", String(params.page));
+  if (params.limit) qs.set("limit", String(params.limit));
+  if (params.sortBy) qs.set("sortBy", params.sortBy);
+  if (params.sortOrder) qs.set("sortOrder", params.sortOrder);
+  if (params.hasBalance) qs.set("hasBalance", params.hasBalance);
+  if (params.activeWithinDays) qs.set("activeWithinDays", String(params.activeWithinDays));
+  const res = await fetch(`${BASE}/api/customers?${qs.toString()}`, { signal: params.signal });
+  return handle<{ customers: unknown[]; total: number; page: number; limit: number; stats: { totalCustomers: number; active30d: number; withDues: { count: number; amount: number }; withoutDues: number; topSpender: unknown } }>(res) as Promise<{ customers: import("@/db/database").Customer[]; total: number; page: number; limit: number; stats: { totalCustomers: number; active30d: number; withDues: { count: number; amount: number }; withoutDues: number; topSpender: { id: string; name: string; totalSpent: number } | null } }>;
+}
+
+export async function fetchCustomer(id: string) {
+  const res = await fetch(`${BASE}/api/customers/${id}`);
+  const data = await handle<{ customer: unknown; ordersTotal: number; ledger: unknown; stats: unknown }>(res);
+  return data as { customer: import("@/db/database").Customer & { orders: unknown[]; ledgerEntries: unknown[] }; ordersTotal: number; ledger: { total: { count: number; amount: number }; pending: { count: number; amount: number }; settled: { count: number; amount: number }; overdue: { count: number; amount: number } }; stats: { avgOrderValue: number; daysSinceLastOrder: number | null; daysSinceFirstOrder: number | null; favoriteCategory: string | null; topProducts: Array<{ name: string; qty: number; spent: number }> } };
+}
+
+export async function createCustomer(payload: { name: string; phone?: string; balance?: number; email?: string; address?: string; notes?: string; creditLimit?: number | null }) {
   const res = await fetch(`${BASE}/api/customers`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
   const data = await handle<{ customer: unknown }>(res);
   return data.customer as import("@/db/database").Customer;
+}
+
+export async function updateCustomer(id: string, payload: Record<string, unknown>) {
+  const res = await fetch(`${BASE}/api/customers/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  const data = await handle<{ customer: unknown }>(res);
+  return data.customer as import("@/db/database").Customer;
+}
+
+export async function softDeleteCustomer(id: string) {
+  const res = await fetch(`${BASE}/api/customers/${id}`, { method: "DELETE" });
+  return handle<{ customer: unknown; softDeleted: boolean }>(res);
+}
+
+export async function restoreCustomer(id: string) {
+  const res = await fetch(`${BASE}/api/customers/${id}/restore`, { method: "POST" });
+  return handle<{ customer: unknown }>(res);
+}
+
+export async function fetchCustomerStats() {
+  const res = await fetch(`${BASE}/api/customers/stats`);
+  return handle<{ total: number; active30d: number; withDues: { count: number; amount: number }; withoutDues: number; topSpenders: unknown[] }>(res);
 }
 
 // Orders

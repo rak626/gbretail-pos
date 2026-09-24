@@ -320,7 +320,7 @@ export default function InventoryPage() {
           {/* Header stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Card className="py-0 gap-0">
-              <CardContent className="p-3 flex items-center gap-3">
+              <CardContent className="p-3 flex flex-row items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-primary/10 border flex items-center justify-center text-primary">
                   <Package className="w-5 h-5" />
                 </div>
@@ -332,7 +332,7 @@ export default function InventoryPage() {
               </CardContent>
             </Card>
             <Card className="py-0 gap-0">
-              <CardContent className="p-3 flex items-center gap-3">
+              <CardContent className="p-3 flex flex-row items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
@@ -343,7 +343,7 @@ export default function InventoryPage() {
               </CardContent>
             </Card>
             <Card className="py-0 gap-0">
-              <CardContent className="p-3 flex items-center gap-3">
+              <CardContent className="p-3 flex flex-row items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-destructive/10 border border-destructive/20 flex items-center justify-center text-destructive">
                   <Boxes className="w-5 h-5" />
                 </div>
@@ -354,8 +354,8 @@ export default function InventoryPage() {
               </CardContent>
             </Card>
             <Card className="py-0 gap-0">
-              <CardContent className="p-3 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300">
+              <CardContent className="p-3 flex flex-row items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary dark:bg-primary/10 dark:border-primary/20 dark:text-primary">
                   <TrendingUp className="w-5 h-5" />
                 </div>
                 <div>
@@ -382,7 +382,7 @@ export default function InventoryPage() {
                   inputRef={searchRef}
                   variant="plain"
                 />
-                <Button onClick={openAdd} className="h-10 px-5 bg-green-700 hover:bg-green-800 text-white dark:bg-green-700 shrink-0">
+                <Button onClick={openAdd} className="h-10 px-5 bg-primary hover:bg-primary/90 text-white dark:bg-primary shrink-0">
                   <Plus className="w-4 h-4" /> Add Product
                 </Button>
               </div>
@@ -479,7 +479,7 @@ export default function InventoryPage() {
                                   <Plus className="w-3.5 h-3.5" />
                                 </Button>
                               </div>
-                              {isLow && <div className="text-xs text-amber-600 font-medium mt-1">Low</div>}
+                              {isLow && <div className="text-xs text-primary font-medium mt-1">Low</div>}
                               {isOut && <div className="text-xs text-destructive font-medium mt-1">Out</div>}
                             </TableCell>
                             <TableCell className="hidden lg:table-cell text-sm font-mono text-muted-foreground max-w-[160px] truncate">
@@ -490,7 +490,7 @@ export default function InventoryPage() {
                                 <Button
                                   variant="outline"
                                   size="icon-xs"
-                                  className="h-8 w-8 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300"
+                                  className="h-8 w-8 bg-primary/5 border-primary/20 text-primary hover:bg-green-100 dark:bg-primary/5 dark:border-primary/20 dark:text-primary"
                                   onClick={() => openRestock(p)}
                                   title="Restock — add quantity & update cost/price"
                                 >
@@ -618,7 +618,7 @@ export default function InventoryPage() {
           </div>
           <DialogFooter className="p-4 gap-3 sm:justify-end">
             <Button variant="outline" onClick={() => setOpen(false)} disabled={saving} className="h-9 px-6 min-w-[96px]">Cancel</Button>
-            <Button onClick={handleSave} disabled={saving} className="bg-green-700 hover:bg-green-800 text-white h-9 px-6 min-w-[130px]">
+            <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90 text-white h-9 px-6 min-w-[130px]">
               {saving ? (editing ? "Saving..." : "Adding...") : editing ? "Done Editing" : "Add Product"}
             </Button>
           </DialogFooter>
@@ -630,7 +630,7 @@ export default function InventoryPage() {
         <DialogContent className="sm:max-w-[460px] p-0 gap-0 overflow-hidden">
           <DialogHeader className="p-5 pb-3">
             <DialogTitle className="text-[14px] flex items-center gap-2">
-              <PackagePlus className="w-4 h-4 text-green-700" /> Restock Product
+              <PackagePlus className="w-4 h-4 text-primary" /> Restock Product
             </DialogTitle>
             <DialogDescription className="text-[11px]">
               Add new purchase quantity — stock will be added, price/rate updated if you change it
@@ -670,7 +670,7 @@ export default function InventoryPage() {
                   autoFocus
                 />
                 {restockQty && !isNaN(Number(restockQty)) && Number(restockQty) > 0 && restockProduct && (
-                  <div className="text-[11px] font-medium text-green-700">
+                  <div className="text-[11px] font-medium text-primary">
                     New stock: {restockProduct.stockQuantity ?? 0} + {Number(restockQty)} = {(restockProduct.stockQuantity ?? 0) + Number(restockQty)} {restockProduct.unit || "pcs"}
                   </div>
                 )}
@@ -681,7 +681,7 @@ export default function InventoryPage() {
                   <Label className="text-[11px]">New Rate per kg (₹) <span className="text-muted-foreground font-normal">— leave as is if cost same</span></Label>
                   <Input type="number" value={restockRate} onChange={(e) => setRestockRate(e.target.value)} placeholder={String(restockProduct.rate_per_kg ?? "")} className="h-8 text-xs" />
                   {restockRate && restockRate !== String(restockProduct.rate_per_kg ?? "") && (
-                    <div className="text-[11px] text-amber-600">{formatINR(restockProduct.rate_per_kg || 0)}/kg → {formatINR(Number(restockRate) || 0)}/kg</div>
+                    <div className="text-[11px] text-primary">{formatINR(restockProduct.rate_per_kg || 0)}/kg → {formatINR(Number(restockRate) || 0)}/kg</div>
                   )}
                 </div>
               ) : (
@@ -689,12 +689,12 @@ export default function InventoryPage() {
                   <Label className="text-[11px]">New Selling Price (₹) <span className="text-muted-foreground font-normal">— leave as is if cost same</span></Label>
                   <Input type="number" value={restockPrice} onChange={(e) => setRestockPrice(e.target.value)} placeholder={String(restockProduct.price ?? "")} className="h-8 text-xs" />
                   {restockPrice && restockPrice !== String(restockProduct.price ?? "") && (
-                    <div className="text-[11px] text-amber-600">{formatINR(restockProduct.price || 0)} → {formatINR(Number(restockPrice) || 0)}</div>
+                    <div className="text-[11px] text-primary">{formatINR(restockProduct.price || 0)} → {formatINR(Number(restockPrice) || 0)}</div>
                   )}
                 </div>
               )}
 
-              <div className="rounded-lg bg-blue-50 border border-blue-200 px-2.5 py-2 text-[11px] text-blue-800 dark:bg-blue-950/30 dark:border-blue-900 dark:text-blue-200 space-y-1">
+              <div className="rounded-lg bg-primary/5 border border-primary/20 px-2.5 py-2 text-[11px] text-blue-800 dark:bg-primary/10 dark:border-blue-900 dark:text-blue-200 space-y-1">
                 <div className="font-semibold">How it works:</div>
                 <div>• <span className="font-medium">Add Product</span> = brand new SKU (first time).</div>
                 <div>• <span className="font-medium">Restock (+)</span> = existing item, add qty (e.g., 40) + update price if your purchase cost changed.</div>
@@ -710,7 +710,7 @@ export default function InventoryPage() {
           )}
           <DialogFooter className="p-4 gap-3 sm:justify-end">
             <Button variant="outline" onClick={() => setRestockOpen(false)} disabled={restockSaving} className="h-9 px-6 min-w-[96px]">Cancel</Button>
-            <Button onClick={handleRestock} disabled={restockSaving} className="bg-green-700 hover:bg-green-800 text-white h-9 px-6 min-w-[130px]">
+            <Button onClick={handleRestock} disabled={restockSaving} className="bg-primary hover:bg-primary/90 text-white h-9 px-6 min-w-[130px]">
               {restockSaving ? "Restocking..." : `Add ${restockQty ? Number(restockQty) : ""} to Stock`}
             </Button>
           </DialogFooter>

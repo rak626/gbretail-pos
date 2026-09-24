@@ -139,12 +139,10 @@ export default function OrdersPage() {
       <div className="flex-1 overflow-auto p-3">
         <div className="max-w-6xl mx-auto space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Link href="/">
-                <Button variant="outline" size="sm"><ArrowLeft className="w-4 h-4" /> Billing</Button>
-              </Link>
-              <h1 className="text-lg font-bold flex items-center gap-2"><Receipt className="w-5 h-5 text-primary" /> Orders</h1>
-              <Badge variant="secondary">{total} total</Badge>
+            <div className="flex items-center gap-2.5">
+              <Link href="/"><Button variant="outline" size="sm" className="rounded-full gap-1.5"><ArrowLeft className="w-4 h-4" /> Billing</Button></Link>
+              <h1 className="text-base font-semibold flex items-center gap-1.5"><Receipt className="w-4 h-4 text-primary" /> Orders</h1>
+              <Badge variant="secondary" className="rounded-full hidden sm:inline-flex">{total} total</Badge>
             </div>
             <div className="text-xs text-muted-foreground hidden sm:block">Auto-saved bills from backend</div>
           </div>
@@ -234,8 +232,18 @@ export default function OrdersPage() {
             const subtotal = o.total + (o.discount || 0);
             const customer = (o as unknown as { customer?: { name: string; phone: string | null } }).customer;
             const handlePrint = () => {
-              const items = o.items.map((it) => ({ name: it.name, unit: it.isCustom ? it.unit : `${it.quantity ?? it.weight ?? ""}`, lineTotal: it.lineTotal }));
-              const html = generateReceiptHTML(items, o.total, o.discount || 0, customer?.name || (o.customerId ? "Customer" : undefined), o.orderNumber || o.id);
+              const items = o.items.map((it) => ({
+                name: it.name,
+                qty: it.isCustom ? String(it.unit) : `${it.quantity ?? it.weight ?? 1}`,
+                quantity: (it as any).quantity ?? null,
+                weight: (it as any).weight ?? null,
+                price: (it as any).price,
+                perUnit: (it as any).isCustom ? (it as any).unit : (it as any).weight ? "kg" : (it as any).unit || "pcs",
+                unit: (it as any).unit,
+                isCustom: (it as any).isCustom,
+                lineTotal: it.lineTotal,
+              }));
+              const html = generateReceiptHTML(items as any, o.total, o.discount || 0, customer?.name || (o.customerId ? "Customer" : undefined), o.orderNumber || o.id);
               const w = window.open("", "_blank");
               if (w) { w.document.write(html); w.document.close(); w.print(); }
             };
@@ -255,7 +263,7 @@ export default function OrdersPage() {
                 <div className="px-5 pb-5 space-y-4 overflow-y-auto flex-1 min-h-0">
                   {/* Customer */}
                   <Card className="py-0">
-                    <CardContent className="p-3 flex items-center gap-3">
+                    <CardContent className="p-3 flex flex-row items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-primary/10 border flex items-center justify-center text-primary shrink-0">
                         <User className="w-4 h-4" />
                       </div>

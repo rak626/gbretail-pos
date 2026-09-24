@@ -102,7 +102,7 @@ export default function CartPanel() {
                     </div>
                   </div>
                   <Button variant="ghost" size="icon-xs" onClick={() => removeItem(index)}>
-                    <X className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
                 {isLoose && !isCustom ? (
