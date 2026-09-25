@@ -3,6 +3,7 @@ import { Inter, Geist, IBM_Plex_Sans, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ConfirmProvider } from "@/components/confirm-dialog";
 import AuthGuard from "@/components/AuthGuard";
 
 const sourceSans3Heading = Source_Sans_3({subsets:['latin'],variable:'--font-heading'});
@@ -49,7 +50,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={cn("h-full", "font-sans", ibmPlexSans.variable, sourceSans3Heading.variable)} suppressHydrationWarning>
       <body className={`h-full flex flex-col ${inter.className}`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          <AuthGuard>{children}</AuthGuard>
+          <ConfirmProvider>
+            <AuthGuard>{children}</AuthGuard>
+          </ConfirmProvider>
         </ThemeProvider>
       </body>
     </html>

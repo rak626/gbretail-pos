@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import AppShell from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +15,7 @@ import { formatINR } from "@/lib/utils";
 import { fetchCustomers, fetchLedger, fetchDueToday, createLedgerEntry, settleLedgerEntry } from "@/lib/api";
 import type { Customer } from "@/db/database";
 import { useAuthStore } from "@/store/authStore";
+import { useConfirm } from "@/components/confirm-dialog";
 import { BookOpen, Plus, Search, Calendar, Phone, User, CheckCircle2, AlertTriangle, Clock3, Wallet, Undo2, Trash2 } from "lucide-react";
 
 type LedgerEntryUI = {
@@ -44,6 +44,7 @@ const TERM_OPTIONS: Array<{ value: "7" | "15" | "30" | "custom"; label: string }
 
 export default function LedgerPage() {
   const selectedCounterId = useAuthStore((s) => s.selectedCounterId);
+  const { confirm, notify } = useConfirm();
   const [filter, setFilter] = useState<Filter>("dueToday");
   const [search, setSearch] = useState("");
   const [entries, setEntries] = useState<LedgerEntryUI[]>([]);
@@ -230,21 +231,31 @@ export default function LedgerPage() {
   };
 
   const handleSettle = async (e: LedgerEntryUI) => {
-    if (!confirm(`Mark ₹${e.amount.toFixed(2)} from ${e.customer.name} as settled? This will reduce due balance.`)) return;
+    const ok = await confirm({
+      title: `Mark ${formatINR(e.amount)} as settled?`,
+      description: `From ${e.customer.name} — this will reduce the due balance.`,
+      confirmText: "Mark settled",
+    });
+    if (!ok) return;
     try {
       await settleLedgerEntry(e.id, "settle");
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Settle failed");
+      await notify({ title: "Settle failed", description: err instanceof Error ? err.message : "Settle failed", danger: true });
     }
   };
   const handleReopen = async (e: LedgerEntryUI) => {
-    if (!confirm(`Reopen this settled entry (₹${e.amount.toFixed(2)} — ${e.customer.name})? Balance will increase again.`)) return;
+    const ok = await confirm({
+      title: "Reopen this settled entry?",
+      description: `${formatINR(e.amount)} — ${e.customer.name}. Balance will increase again.`,
+      confirmText: "Reopen",
+    });
+    if (!ok) return;
     try {
       await settleLedgerEntry(e.id, "reopen");
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Reopen failed");
+      await notify({ title: "Reopen failed", description: err instanceof Error ? err.message : "Reopen failed", danger: true });
     }
   };
 
@@ -262,7 +273,7 @@ export default function LedgerPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="flex-1 overflow-auto p-3">
         <div className="max-w-6xl mx-auto space-y-3">
           {/* header */}
@@ -564,6 +575,6 @@ export default function LedgerPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AppShell>
+    </>
   );
 }

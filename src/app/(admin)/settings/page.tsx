@@ -2,18 +2,19 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import AppShell from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/store/authStore";
 import { apiClient } from "@/lib/apiClient";
+import { useConfirm } from "@/components/confirm-dialog";
 import { Settings, Monitor, Plus, Trash2, Store, Users } from "lucide-react";
 
 export default function SettingsPage() {
   const user = useAuthStore((s) => s.user);
   const shop = useAuthStore((s) => s.shop);
+  const { confirm, notify } = useConfirm();
   const [counters, setCounters] = useState<{ id: string; name: string; isActive: boolean; shopId: string }[]>([]);
   const [newCounter, setNewCounter] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,11 +35,27 @@ export default function SettingsPage() {
 
   useEffect(() => { load(); }, [user?.shopId]);
 
-  if (!user) return <AppShell><div className="p-8 text-center text-sm">Loading...</div></AppShell>;
+  const handleDeleteCounter = async (id: string, name: string) => {
+    const ok = await confirm({
+      title: `Delete counter "${name}"?`,
+      description: "Bills already recorded on this counter will remain.",
+      confirmText: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await apiClient.delete(`/api/counters/${id}`);
+      await load();
+    } catch (e) {
+      await notify({ title: "Delete failed", description: e instanceof Error ? e.message : "Delete failed", danger: true });
+    }
+  };
+
+  if (!user) return <><div className="p-8 text-center text-sm">Loading...</div></>;
 
   if (!user.shopId) {
     return (
-      <AppShell>
+      <>
         <div className="flex-1 flex items-center justify-center p-8">
           <Card className="max-w-md w-full">
             <CardContent className="p-6 text-center">
@@ -48,7 +65,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </div>
-      </AppShell>
+      </>
     );
   }
 
@@ -66,7 +83,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="flex-1 overflow-auto p-3">
         <div className="max-w-4xl mx-auto space-y-4">
           <div className="flex items-center gap-2">
@@ -107,7 +124,7 @@ export default function SettingsPage() {
                   <div key={c.id} className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
                     <Monitor className="w-3.5 h-3.5 text-primary" /> {c.name}
                     {canManage && (
-                      <Button variant="ghost" size="icon-xs" className="h-5 w-5 ml-1" onClick={async () => { if (!confirm(`Delete ${c.name}?`)) return; await apiClient.delete(`/api/counters/${c.id}`); load(); }}>
+                      <Button variant="ghost" size="icon-xs" className="h-5 w-5 ml-1" onClick={() => handleDeleteCounter(c.id, c.name)}>
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     )}
@@ -121,6 +138,6 @@ export default function SettingsPage() {
           {!canManage && <div className="text-[11px] text-muted-foreground px-1">You are logged in as STAFF. You can use any counter to bill — orders track who billed. User management is not available for this role.</div>}
         </div>
       </div>
-    </AppShell>
+    </>
   );
 }

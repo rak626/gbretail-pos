@@ -31,8 +31,9 @@ export default function LoginPage() {
     if (token) {
       fetchMe()
         .then((data) => {
-          // already valid — go to billing
-          router.replace("/");
+          // already valid — super admin has no billing, land on admin
+          const role = (data as any)?.user?.role;
+          router.replace(role === "SUPER_ADMIN" ? "/admin" : "/");
         })
         .catch(() => {
           // token invalid, stay
@@ -74,7 +75,8 @@ export default function LoginPage() {
       else if (res.counterId) setSelectedCounter(res.counterId);
 
       setInfo("Login successful — redirecting...");
-      router.replace("/");
+      // SUPER_ADMIN never bills (owner & counter-staff only) — land on admin
+      router.replace(user.role === "SUPER_ADMIN" ? "/admin" : "/");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Login failed";
       setError(msg);

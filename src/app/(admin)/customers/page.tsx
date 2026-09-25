@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import AppShell from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -159,7 +158,7 @@ export default function CustomersPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="flex-1 overflow-auto p-3">
         <div className="max-w-6xl mx-auto space-y-3">
           {/* header */}
@@ -358,6 +357,6 @@ export default function CustomersPage() {
 
       <CustomerDrawer open={drawerOpen} onOpenChange={setDrawerOpen} customerId={selectedId} onDeleted={handleDeleted} onUpdated={handleDeleted} />
       <CustomerFormDialog open={addOpen} onOpenChange={setAddOpen} onSaved={handleAdded} />
-    </AppShell>
+    </>
   );
 }

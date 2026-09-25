@@ -41,15 +41,34 @@ export default function Sidebar() {
   const user = useAuthStore((s) => s.user);
 
   const navItems = (() => {
-    const items = [...BASE_NAV_ITEMS];
+    // STAFF = shop floor: billing + orders reprint + ledger always; inventory
+    // only when the owner granted it (user.canManageInventory).
+    if (user?.role === "STAFF") {
+      const items = BASE_NAV_ITEMS.filter((i) => i.href === "/" || i.href === "/orders");
+      if ((user as any)?.canManageInventory) {
+        const inv = BASE_NAV_ITEMS.find((i) => i.href === "/inventory");
+        if (inv) items.push(inv);
+      }
+      const ledger = BASE_NAV_ITEMS.find((i) => i.href === "/ledger");
+      if (ledger) items.push(ledger);
+      return items;
+    }
+    // SUPER_ADMIN is platform-level with no shop context: no billing, orders
+    // or inventory. Has Customers, Analytics, Ledger, Settings + Admin/Users.
     if (user?.role === "SUPER_ADMIN") {
-      items.push({ href: "/admin", label: "Admin", icon: Shield });
-      items.push({ href: "/users", label: "Users", icon: Users });
-    } else if (user?.role === "SHOP_OWNER") {
+      return [
+        { href: "/customers", label: "Customers", icon: Users },
+        { href: "/analytics", label: "Analytics", icon: BarChart3 },
+        { href: "/ledger", label: "Ledger", icon: BookOpen },
+        { href: "/settings", label: "Settings", icon: Settings },
+        { href: "/admin", label: "Admin", icon: Shield },
+        { href: "/users", label: "Users", icon: Users },
+      ];
+    }
+    const items = [...BASE_NAV_ITEMS];
+    if (user?.role === "SHOP_OWNER") {
       items.push({ href: "/settings", label: "Settings", icon: Settings });
       items.push({ href: "/users", label: "Users", icon: Users });
-    } else if (user?.role === "STAFF") {
-      items.push({ href: "/settings", label: "Settings", icon: Settings });
     }
     return items;
   })();

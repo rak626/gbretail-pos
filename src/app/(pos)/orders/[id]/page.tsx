@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import AppShell from "@/components/AppShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +57,7 @@ export default function OrderDetailPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="flex-1 overflow-auto p-3">
         <div className="max-w-3xl mx-auto space-y-3">
           <div className="flex items-center gap-2">
@@ -143,6 +142,6 @@ export default function OrderDetailPage() {
           ) : null}
         </div>
       </div>
-    </AppShell>
+    </>
   );
 }

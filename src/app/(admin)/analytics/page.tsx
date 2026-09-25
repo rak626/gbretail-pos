@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import AppShell from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -122,7 +121,7 @@ export default function AnalyticsPage() {
   });
 
   return (
-    <AppShell>
+    <>
       <div className="flex-1 overflow-auto p-3">
         <div className="max-w-7xl mx-auto space-y-4">
           {/* Header */}
@@ -473,6 +472,6 @@ export default function AnalyticsPage() {
           )}
         </div>
       </div>
-    </AppShell>
+    </>
   );
 }

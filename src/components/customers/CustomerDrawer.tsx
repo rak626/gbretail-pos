@@ -10,6 +10,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { fetchCustomer, softDeleteCustomer, restoreCustomer, fetchOrders, fetchLedger } from "@/lib/api";
+import { useConfirm } from "@/components/confirm-dialog";
 import { formatINR } from "@/lib/utils";
 import { generateReceiptHTML } from "@/lib/print";
 import type { Customer } from "@/db/database";
@@ -76,6 +77,7 @@ function DrawerContent({ className, children, ...props }: React.ComponentProps<t
 }
 
 export default function CustomerDrawer({ open, onOpenChange, customerId, onDeleted, onUpdated }: DrawerProps) {
+  const { confirm, notify } = useConfirm();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [customer, setCustomer] = useState<(Customer & { email?: string | null; address?: string | null; notes?: string | null; creditLimit?: number | null }) | null>(null);
@@ -164,17 +166,22 @@ export default function CustomerDrawer({ open, onOpenChange, customerId, onDelet
   const handleSoftDelete = async () => {
     if (!customer || !customerId) return;
     const hasDue = customer.balance > 0;
-    const msg = hasDue
-      ? `Hide customer "${customer.name}"? They have dues ₹${customer.balance.toFixed(2)}. Orders & Khata will remain. You can restore later.`
-      : `Hide customer "${customer.name}"? Orders & Khata will remain. You can restore later. This is soft-delete.`;
-    if (!confirm(msg)) return;
+    const ok = await confirm({
+      title: `Hide customer "${customer.name}"?`,
+      description: hasDue
+        ? `They have dues of ${formatINR(customer.balance)}. Orders & Khata will remain. You can restore later.`
+        : "Orders & Khata will remain. You can restore later. This is soft-delete.",
+      confirmText: "Hide customer",
+      danger: true,
+    });
+    if (!ok) return;
     setDeleting(true);
     try {
       await softDeleteCustomer(customerId);
       onOpenChange(false);
       onDeleted?.();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Delete failed");
+      await notify({ title: "Delete failed", description: e instanceof Error ? e.message : "Delete failed", danger: true });
     } finally {
       setDeleting(false);
     }
@@ -187,7 +194,7 @@ export default function CustomerDrawer({ open, onOpenChange, customerId, onDelet
       await load(customerId, ordersPage);
       onUpdated?.();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Restore failed");
+      await notify({ title: "Restore failed", description: e instanceof Error ? e.message : "Restore failed", danger: true });
     }
   };
 

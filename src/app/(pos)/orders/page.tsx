@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import AppShell from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,7 +133,7 @@ export default function OrdersPage() {
   }, []);
 
   return (
-    <AppShell>
+    <>
       <div className="flex-1 overflow-auto p-3">
         <div className="max-w-6xl mx-auto space-y-3">
           <div className="flex items-center justify-between">
@@ -354,6 +353,6 @@ export default function OrdersPage() {
           })()}
         </DialogContent>
       </Dialog>
-    </AppShell>
+    </>
   );
 }

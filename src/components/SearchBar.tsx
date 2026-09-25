@@ -12,7 +12,7 @@ import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@
 import SearchBox from "@/components/SearchBox";
 import { Barcode } from "lucide-react";
 
-export default function SearchBar() {
+export default function SearchBar({ size = "default" }: { size?: "default" | "hero" }) {
   const { searchQuery, setSearchQuery, openLooseModal, addItem } = useCartStore();
   const [results, setResults] = useState<Product[]>([]);
   const [show, setShow] = useState(false);
@@ -173,7 +173,7 @@ export default function SearchBar() {
       <PopoverTrigger render={<div className="w-full" />} nativeButton={false}>
           <SearchBox
             placeholder="Scan barcode or type product name..."
-            leftIcon={<Barcode className="w-4 h-4" />}
+            leftIcon={<Barcode className="w-5 h-5" />}
             value={searchQuery}
             onValueChange={handleImmediate}
             onSearch={handleDebouncedSearch}
@@ -181,6 +181,7 @@ export default function SearchBar() {
             onFocusSearch={handleFocusSearch}
             inputRef={ref}
             onKeyDown={handleKeyDown}
+            size={size}
           />
       </PopoverTrigger>
       <PopoverContent className="w-[var(--anchor-width)] p-0" align="start" sideOffset={6}>
