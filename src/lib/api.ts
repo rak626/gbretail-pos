@@ -1,6 +1,6 @@
 import { apiClient } from "@/lib/apiClient";
 export { ApiError, API_BASE } from "@/lib/apiClient";
-import type { Product, Customer, Order } from "@/types";
+import type { Product, Customer, Order, LowStockWarning } from "@/types";
 
 // Products
 export async function fetchProducts(
@@ -92,7 +92,13 @@ export async function createOrder(payload: {
   counterId?: string;
   shopId?: string;
 }) {
-  const data = await apiClient.post<{ order: Order }>("/api/orders", payload);
+  const data = await apiClient.post<{ order: Order; lowStockWarnings?: LowStockWarning[] }>("/api/orders", payload);
+  if (data.lowStockWarnings?.length) {
+    console.warn(
+      "[orders] low stock after sale:",
+      data.lowStockWarnings.map((w) => `${w.name} — ${w.stockQuantity} ${w.unit} left (warn at ≤ ${w.lowStockThreshold})`).join("; ")
+    );
+  }
   return data.order;
 }
 

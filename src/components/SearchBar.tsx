@@ -4,6 +4,7 @@ import { useCartStore } from "@/store/cartStore";
 import { products as staticProducts } from "@/data/products";
 import type { Product } from "@/db/database";
 import { formatINR } from "@/lib/utils";
+import { isLowStock, isOutOfStock } from "@/lib/stock";
 import { fetchProducts } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -201,6 +202,8 @@ export default function SearchBar() {
                     <span className="text-sm font-medium flex items-center gap-2 min-w-0">
                       <span className="truncate">{p.name}</span>
                       <Badge variant="secondary" className="text-xs shrink-0">{p.category}</Badge>
+                      {isOutOfStock(p) && <Badge variant="destructive" className="text-xs shrink-0">Out</Badge>}
+                      {!isOutOfStock(p) && isLowStock(p) && <Badge className="text-xs shrink-0 bg-amber-100 text-amber-800 border-amber-200">Low</Badge>}
                     </span>
                     <span className="text-sm font-bold text-primary shrink-0 ml-2">{p.is_loose ? `${formatINR(p.rate_per_kg || 0)}/kg` : formatINR(p.price || 0)}</span>
                   </CommandItem>

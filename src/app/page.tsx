@@ -16,6 +16,7 @@ import PaymentModal from "@/components/PaymentModal";
 import AddCustomerDialog from "@/components/AddCustomerDialog";
 import { products as staticProducts } from "@/data/products";
 import { formatINR } from "@/lib/format";
+import { isLowStock, isOutOfStock } from "@/lib/stock";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScanBarcode } from "lucide-react";
@@ -113,7 +114,11 @@ export default function Home() {
                     >
                       <CardContent className="p-2.5">
                         <div className="text-sm font-medium leading-tight truncate">{p.name}</div>
-                        <div className="text-xs text-muted-foreground mt-1">{formatINR((p as any).price || (p as any).rate_per_kg || 0)}</div>
+                        <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
+                          <span>{formatINR((p as any).price || (p as any).rate_per_kg || 0)}</span>
+                          {isOutOfStock(p as Product) && <span className="text-[10px] font-semibold text-destructive">Out</span>}
+                          {!isOutOfStock(p as Product) && isLowStock(p as Product) && <span className="text-[10px] font-semibold text-amber-600">Low</span>}
+                        </div>
                       </CardContent>
                     </Card>
                   ))}

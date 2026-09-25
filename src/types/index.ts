@@ -14,6 +14,16 @@ export type Product = {
   preset_weights?: number[];
   preset_prices?: number[];
   stockQuantity?: number;
+  // Warn when stockQuantity <= lowStockThreshold (in the product's own stock unit). Defaults to 10.
+  lowStockThreshold?: number | null;
+};
+
+export type LowStockWarning = {
+  productId: string;
+  name: string;
+  stockQuantity: number;
+  lowStockThreshold: number;
+  unit: string;
 };
 
 export type OrderItem = {

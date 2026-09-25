@@ -14,6 +14,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { formatINR } from "@/lib/utils";
+import { isLowStock, isOutOfStock, lowStockThresholdOf } from "@/lib/stock";
 import { fetchProducts, createProduct, updateProduct, deleteProduct } from "@/lib/api";
 import type { Product } from "@/db/database";
 import SearchBox from "@/components/SearchBox";
@@ -31,6 +32,7 @@ type ProductForm = {
   barcode: string;
   unit: string;
   stockQuantity: string;
+  lowStockThreshold: string;
   description: string;
 };
 
@@ -44,6 +46,7 @@ const emptyForm: ProductForm = {
   barcode: "",
   unit: "pcs",
   stockQuantity: "100",
+  lowStockThreshold: "10",
   description: "",
 };
 
@@ -170,8 +173,8 @@ export default function InventoryPage() {
 
   const stats = useMemo(() => {
     const total = products.length;
-    const low = products.filter((p) => (p.stockQuantity ?? 0) > 0 && (p.stockQuantity ?? 0) < 10).length;
-    const out = products.filter((p) => (p.stockQuantity ?? 0) <= 0).length;
+    const low = products.filter((p) => isLowStock(p)).length;
+    const out = products.filter((p) => isOutOfStock(p)).length;
     const cats = new Set(products.map((p) => p.category)).size;
     return { total, low, out, cats };
   }, [products]);
@@ -195,6 +198,7 @@ export default function InventoryPage() {
       barcode: p.barcode ?? "",
       unit: p.unit ?? "pcs",
       stockQuantity: String(p.stockQuantity ?? 100),
+      lowStockThreshold: String(p.lowStockThreshold ?? 10),
       description: "",
     });
     setFormError("");
@@ -214,6 +218,8 @@ export default function InventoryPage() {
         return setFormError("Price is required for packaged items");
     }
     if (form.barcode && form.barcode.length < 8) return setFormError("Barcode should be at least 8 characters");
+    if (form.lowStockThreshold.trim() !== "" && (isNaN(Number(form.lowStockThreshold)) || Number(form.lowStockThreshold) < 0))
+      return setFormError("Low-stock warning level must be 0 or more");
 
     setSaving(true);
     try {
@@ -226,6 +232,7 @@ export default function InventoryPage() {
         costPrice: Number(form.costPrice),
         unit: form.unit.trim() || "pcs",
         stockQuantity: Number(form.stockQuantity) || 0,
+        lowStockThreshold: form.lowStockThreshold.trim() === "" ? 10 : Number(form.lowStockThreshold),
       };
       if (form.is_loose) {
         payload.rate_per_kg = Number(form.rate_per_kg);
@@ -337,7 +344,7 @@ export default function InventoryPage() {
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium">Low Stock &lt;10</div>
+                  <div className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium">Low Stock</div>
                   <div className="text-xl font-black leading-none">{stats.low}</div>
                 </div>
               </CardContent>
@@ -444,8 +451,10 @@ export default function InventoryPage() {
                     <TableBody>
                       {filtered.map((p) => {
                         const stock = p.stockQuantity ?? 0;
-                        const isLow = stock > 0 && stock < 10;
-                        const isOut = stock <= 0;
+                        const unit = p.unit || "pcs";
+                        const threshold = lowStockThresholdOf(p);
+                        const isLow = isLowStock(p);
+                        const isOut = isOutOfStock(p);
                         return (
                           <TableRow key={p.id} className="hover:bg-muted/40 h-[62px]">
                             <TableCell className="py-3.5 px-4">
@@ -479,8 +488,9 @@ export default function InventoryPage() {
                                   <Plus className="w-3.5 h-3.5" />
                                 </Button>
                               </div>
-                              {isLow && <div className="text-xs text-primary font-medium mt-1">Low</div>}
+                              {isLow && <div className="text-xs text-primary font-medium mt-1">Low • {stock} {unit} left</div>}
                               {isOut && <div className="text-xs text-destructive font-medium mt-1">Out</div>}
+                              {!isLow && !isOut && <div className="text-[11px] text-muted-foreground mt-1">warn at ≤ {threshold} {unit}</div>}
                             </TableCell>
                             <TableCell className="hidden lg:table-cell text-sm font-mono text-muted-foreground max-w-[160px] truncate">
                               {p.barcode || "—"}
@@ -533,6 +543,9 @@ export default function InventoryPage() {
             <div className="space-y-1">
               <Label className="text-[11px]">Product Name *</Label>
               <Input value={form.name} onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))} placeholder="e.g., Tata Salt 1kg" className="h-8 text-xs" />
+              {form.is_loose && (
+                <div className="text-[10px] text-muted-foreground">One item, multiple rates? Create one product per rate — e.g. “Sugar – Economy @ ₹40/kg” and “Sugar – Premium @ ₹50/kg”. Each keeps its own stock.</div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-2.5">
               <div className="space-y-1">
@@ -600,6 +613,12 @@ export default function InventoryPage() {
             </div>
 
             <div className="space-y-1">
+              <Label className="text-[11px]">Low-stock warning at * <span className="text-muted-foreground font-normal">(in {form.unit.trim() || "pcs"} — warn only, never blocks sales)</span></Label>
+              <Input type="number" value={form.lowStockThreshold} onChange={(e) => setForm((s) => ({ ...s, lowStockThreshold: e.target.value }))} placeholder="10" className="h-8 text-xs" />
+              <div className="text-[10px] text-muted-foreground">E.g. 10 pcs, 2 bags, 5 kg — per product.</div>
+            </div>
+
+            <div className="space-y-1">
               <Label className="text-[11px]">Description <span className="text-muted-foreground font-normal">(optional)</span></Label>
               <Textarea
                 value={form.description}
@@ -645,9 +664,10 @@ export default function InventoryPage() {
                     <Badge variant="outline" className="text-[11px]">{restockProduct.category}</Badge>
                     <Badge variant={restockProduct.is_loose ? "secondary" : "outline"} className="text-[11px]">{restockProduct.is_loose ? "Loose • per kg" : "Packaged"}</Badge>
                     <span className="text-muted-foreground">Current stock:</span>
-                    <Badge variant={(restockProduct.stockQuantity ?? 0) <= 0 ? "destructive" : (restockProduct.stockQuantity ?? 0) < 10 ? "secondary" : "outline"} className="font-mono text-xs">
+                    <Badge variant={isOutOfStock(restockProduct) ? "destructive" : isLowStock(restockProduct) ? "secondary" : "outline"} className="font-mono text-xs">
                       {restockProduct.stockQuantity ?? 0} {restockProduct.unit || "pcs"}
                     </Badge>
+                    <span className="text-muted-foreground">warn at ≤ {lowStockThresholdOf(restockProduct)} {restockProduct.unit || "pcs"}</span>
                   </div>
                   <div className="text-xs">
                     <span className="text-muted-foreground">Current {restockProduct.is_loose ? "rate" : "price"}:</span>{" "}
