@@ -1,3 +1,7 @@
+import { formatINRReceipt, formatLooseQty, getPerUnitText } from "@/lib/format";
+import { UI } from "@/config/constants";
+import type { ReceiptItem } from "@/types";
+
 export function getOrderPdfFilename(orderId: string, date = new Date()): string {
   const yy = String(date.getFullYear()).slice(-2);
   const mm = String(date.getMonth() + 1).padStart(2, "0");
@@ -10,43 +14,31 @@ export function getOrderPdfFilename(orderId: string, date = new Date()): string 
   return `${safeId}_${ts}`;
 }
 
-type ReceiptItem = {
-  name: string;
-  unit?: string;
-  lineTotal: number;
-  qty?: string;
-  rate?: string;
-  price?: number;
-  perUnit?: string;
-  quantity?: number | null;
-  weight?: number | null;
-  isCustom?: boolean;
-};
-
 function getPerUnitLabel(p: ReceiptItem): string {
-  // fallback to unit string if rate/perUnit not provided
   if (p.rate) return p.rate;
-  if (p.perUnit) return `${formatINR(p.price ?? 0)} / ${p.perUnit}`;
+  if (p.perUnit) return `${formatINRReceipt(p.price ?? 0)} / ${p.perUnit}`;
   if (p.price != null) {
-    const u = (p.perUnit || p.unit || "pc").toLowerCase();
-    if (u === "pcs" || u === "pc" || u === "pcs.") return `${formatINR(p.price)} / pc`;
-    if (u === "pack" || u === "pkt" || u === "packet") return `${formatINR(p.price)} / pack`;
-    if (u === "kg" || u === "g" || p.weight) return `${formatINR(p.price)}/kg`;
-    return `${formatINR(p.price)} / ${u || "pc"}`;
+    return `${formatINRReceipt(p.price)} / ${getPerUnitText({ unit: p.perUnit || p.unit, weight: p.weight, isCustom: p.isCustom }).replace("per ", "")}`;
   }
   return "";
 }
 
 function getQtyText(p: ReceiptItem): string {
   if (p.qty) return p.qty;
-  if (p.weight != null && p.weight > 0) {
-    if (p.weight >= 1) return `${Number(p.weight).toFixed(3)} kg`.replace(/\.000/, "");
-    return `${Math.round(Number(p.weight) * 1000)} g`;
-  }
+  if (p.weight != null && p.weight > 0) return formatLooseQty(p.weight);
   const q = p.quantity ?? (p.unit ? parseFloat(String(p.unit)) : NaN);
   if (!isNaN(q as number)) return String(q);
   if (p.unit && p.unit.trim() && !p.unit.includes("₹")) return String(p.unit).trim();
   return "1";
+}
+
+// Centralized print — single implementation for window.open → document.write → print
+export function printReceiptHTML(html: string): void {
+  const w = window.open("", "_blank");
+  if (!w) return;
+  w.document.write(html);
+  w.document.close();
+  w.print();
 }
 
 export function generateReceiptHTML(
@@ -93,7 +85,7 @@ export function generateReceiptHTML(
       <span style="width:42%;text-align:left;word-break:break-word;padding-right:4px;">${safeName}</span>
       <span style="width:15%;text-align:center;">${safeQty}</span>
       <span style="width:17%;text-align:right;word-break:break-word;">${safeRate}</span>
-      <span style="width:18%;text-align:right;font-weight:bold;">${formatINR(item.lineTotal)}</span>
+      <span style="width:18%;text-align:right;font-weight:bold;">${formatINRReceipt(item.lineTotal)}</span>
     </div>`;
     })
     .join("");
@@ -101,9 +93,9 @@ export function generateReceiptHTML(
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>${pdfTitle}</title>
 <style>
-@page { size: 58mm; margin: 5mm; }
+@page { size: ${UI.RECEIPT_WIDTH_MM}; margin: 5mm; }
 body { font-family: 'Courier New', monospace; font-size: 11px; margin: 0; padding: 0; }
-.receipt { width: 58mm; padding: 5px; }
+.receipt { width: ${UI.RECEIPT_WIDTH_MM}; padding: 5px; }
 .header { text-align: center; border-bottom: 2px double #000; padding-bottom: 5px; margin-bottom: 5px; }
 .store-name { font-size: 16px; font-weight: bold; margin: 0; }
 .store-info { font-size: 9px; color: #333; }
@@ -120,13 +112,9 @@ body { font-family: 'Courier New', monospace; font-size: 11px; margin: 0; paddin
   </div>
   <div class="date-time">${dateStr} | ${timeStr}${customerName ? ' | ' + customerName : ''}</div>
   <div class="items">${headerRow}${itemsHTML}</div>
-  ${discount > 0 ? '<div style="text-align:right;font-size:10px;">Discount: -' + formatINR(discount) + '</div>' : ''}
-  <div class="total-line">Total: ${formatINR(total)}</div>
+  ${discount > 0 ? '<div style="text-align:right;font-size:10px;">Discount: -' + formatINRReceipt(discount) + '</div>' : ''}
+  <div class="total-line">Total: ${formatINRReceipt(total)}</div>
   ${orderId ? '<div class="payment">Order: ' + orderId + '</div>' : ''}
   <div class="footer">Thank you for shopping with us!<br>Visit again!</div>
 </div></body></html>`;
-}
-
-function formatINR(amount: number): string {
-  return `₹${amount.toFixed(2)}`;
 }

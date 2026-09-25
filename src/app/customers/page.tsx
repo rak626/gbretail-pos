@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,6 @@ import {
   Users,
   Search,
   Plus,
-  ArrowLeft,
   Phone,
   Wallet,
   TrendingUp,
@@ -167,7 +165,6 @@ export default function CustomersPage() {
           {/* header */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5">
-              <Link href="/"><Button variant="outline" size="sm" className="rounded-full gap-1.5"><ArrowLeft className="w-4 h-4" /> Billing</Button></Link>
               <h1 className="text-base font-semibold flex items-center gap-1.5"><Users className="w-4 h-4 text-primary" /> Customers</h1>
               <Badge variant="secondary" className="rounded-full text-xs font-normal px-2.5 hidden sm:inline-flex">{total} total</Badge>
             </div>
@@ -322,7 +319,7 @@ export default function CustomersPage() {
                               {isDue ? <Badge variant="destructive" className="text-[11px]">{formatINR(c.balance).replace(".00","")}</Badge> : <Badge variant="outline" className="text-[11px]">No dues</Badge>}
                             </TableCell>
                             <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
-                              {c.lastOrderAt ? new Date(c.lastOrderAt as string).toLocaleDateString("en-IN") : <span className="text-muted-foreground/70">Never</span>}
+                              {c.lastOrderAt ? new Date(c.lastOrderAt as unknown as string).toLocaleDateString("en-IN") : <span className="text-muted-foreground/70">Never</span>}
                             </TableCell>
                             <TableCell className="text-right">
                               <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); openDrawer(c.id); }}>

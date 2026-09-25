@@ -340,7 +340,7 @@ export default function CustomerDrawer({ open, onOpenChange, customerId, onDelet
                     <CardContent className="p-2.5">
                       <div className="text-[11px] text-muted-foreground font-semibold">Last order</div>
                       <div className="text-xs font-bold">
-                        {customer.lastOrderAt ? new Date(customer.lastOrderAt as string).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }) : "— Never"}
+                        {customer.lastOrderAt ? new Date(customer.lastOrderAt as unknown as string).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" }) : "— Never"}
                       </div>
                       {daysSince != null && <div className="text-[11px] text-muted-foreground">{daysSince === 0 ? "Today" : `${daysSince}d ago`}</div>}
                     </CardContent>
@@ -511,7 +511,7 @@ export default function CustomerDrawer({ open, onOpenChange, customerId, onDelet
                 )}
 
                 <div className="text-[11px] text-muted-foreground text-center pb-1">
-                  Customer since {customer.createdAt ? new Date(customer.createdAt as string).toLocaleDateString("en-IN") : "—"} • ID {customer.id.slice(0,8)}
+                  Customer since {customer.createdAt ? new Date(customer.createdAt as unknown as string).toLocaleDateString("en-IN") : "—"} • ID {customer.id.slice(0,8)}
                 </div>
               </div>
             </ScrollArea>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useCallback } from "react";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useCartStore, initializeOfflineDetection } from "@/store/cartStore";
 import AppShell from "@/components/AppShell";
@@ -15,50 +15,63 @@ import CustomItemModal from "@/components/CustomItemModal";
 import PaymentModal from "@/components/PaymentModal";
 import AddCustomerDialog from "@/components/AddCustomerDialog";
 import { products as staticProducts } from "@/data/products";
-import { formatINR } from "@/lib/utils";
+import { formatINR } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScanBarcode } from "lucide-react";
+import type { Product } from "@/types";
 
 export default function Home() {
-  const { looseItemModalOpen, customItemModalOpen, paymentModalOpen, addItem, openLooseModal, productFreq, recentIds } =
-    useCartStore();
+  const looseItemModalOpen = useCartStore((s) => s.looseItemModalOpen);
+  const customItemModalOpen = useCartStore((s) => s.customItemModalOpen);
+  const paymentModalOpen = useCartStore((s) => s.paymentModalOpen);
+  const addItem = useCartStore((s) => s.addItem);
+  const openLooseModal = useCartStore((s) => s.openLooseModal);
+  const productFreq = useCartStore((s) => s.productFreq);
+  const recentIds = useCartStore((s) => s.recentIds);
 
-  // most frequent: sort staticProducts by freq desc, fallback to original order
-  const mostFrequent = [...staticProducts].sort((a, b) => {
-    const fa = productFreq[a.id] || 0;
-    const fb = productFreq[b.id] || 0;
-    if (fa !== fb) return fb - fa;
-    return 0;
-  });
-  const recentProducts = recentIds
-    .map((id) => staticProducts.find((p) => p.id === id))
-    .filter(Boolean) as typeof staticProducts;
+  // Memoized — avoids sorting 30 items on every cart change / rerender
+  const mostFrequent = useMemo(() => {
+    return [...staticProducts].sort((a, b) => {
+      const fa = productFreq[a.id] || 0;
+      const fb = productFreq[b.id] || 0;
+      if (fa !== fb) return fb - fa;
+      return 0;
+    });
+  }, [productFreq]);
 
-  const handleProductClick = (p: (typeof staticProducts)[number]) => {
-    if ((p as any).is_loose) {
-      openLooseModal(p as any);
-    } else {
-      addItem({
-        productId: p.id,
-        name: p.name,
-        price: (p as any).price || 0,
-        unit: "pcs",
-        quantity: 1,
-        lineTotal: (p as any).price || 0,
-        isCustom: false,
-        is_loose: false,
-        category: (p as any).category,
-        costPrice: (p as any).costPrice ?? 0,
-      });
-    }
-  };
+  const recentProducts = useMemo(() => {
+    return recentIds.map((id) => staticProducts.find((p) => p.id === id)).filter(Boolean) as typeof staticProducts;
+  }, [recentIds]);
+
+  const handleProductClick = useCallback(
+    (p: Product) => {
+      if (p.is_loose) {
+        openLooseModal(p);
+      } else {
+        addItem({
+          productId: p.id,
+          name: p.name,
+          price: p.price || p.rate_per_kg || 0,
+          unit: "pcs",
+          quantity: 1,
+          lineTotal: p.price || p.rate_per_kg || 0,
+          isCustom: false,
+          is_loose: false,
+          category: p.category,
+          costPrice: p.costPrice ?? 0,
+        });
+      }
+    },
+    [addItem, openLooseModal]
+  );
 
   useEffect(() => {
-    initializeOfflineDetection();
+    const cleanup = initializeOfflineDetection();
     // Warm up API — check health via backend, fallback silently if DB not configured
     const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
     fetch(`${base}/api/health`).catch(() => {});
+    return cleanup;
   }, []);
 
   useKeyboardShortcuts();

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,7 @@ import SearchBox from "@/components/SearchBox";
 import { formatINR } from "@/lib/utils";
 import { fetchCustomers, fetchLedger, fetchDueToday, createLedgerEntry, settleLedgerEntry } from "@/lib/api";
 import type { Customer } from "@/db/database";
-import { BookOpen, Plus, Search, Calendar, Phone, User, CheckCircle2, AlertTriangle, Clock3, Wallet, ArrowLeft, Undo2, Trash2 } from "lucide-react";
+import { BookOpen, Plus, Search, Calendar, Phone, User, CheckCircle2, AlertTriangle, Clock3, Wallet, Undo2, Trash2 } from "lucide-react";
 
 type LedgerEntryUI = {
   id: string;
@@ -266,7 +265,6 @@ export default function LedgerPage() {
           {/* header */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5">
-              <Link href="/"><Button variant="outline" size="sm" className="rounded-full gap-1.5"><ArrowLeft className="w-4 h-4" /> Billing</Button></Link>
               <h1 className="text-base font-semibold flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-primary" /> Ledger — Khata</h1>
               <Badge variant="secondary" className="hidden sm:inline-flex rounded-full">{total} entries</Badge>
             </div>

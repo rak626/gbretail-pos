@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,7 @@ import { generateReceiptHTML } from "@/lib/print";
 import { fetchOrders } from "@/lib/api";
 import type { Order } from "@/db/database";
 import SearchBox from "@/components/SearchBox";
-import { Search, Receipt, ArrowLeft, Calendar, User, Phone, CreditCard, ShoppingBag, Printer, X } from "lucide-react";
+import { Search, Receipt, Calendar, User, Phone, CreditCard, ShoppingBag, Printer, X } from "lucide-react";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -140,7 +139,6 @@ export default function OrdersPage() {
         <div className="max-w-6xl mx-auto space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <Link href="/"><Button variant="outline" size="sm" className="rounded-full gap-1.5"><ArrowLeft className="w-4 h-4" /> Billing</Button></Link>
               <h1 className="text-base font-semibold flex items-center gap-1.5"><Receipt className="w-4 h-4 text-primary" /> Orders</h1>
               <Badge variant="secondary" className="rounded-full hidden sm:inline-flex">{total} total</Badge>
             </div>

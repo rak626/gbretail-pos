@@ -11,8 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { formatINR } from "@/lib/utils";
 import { fetchAnalyticsSummary, getAnalyticsExportUrl } from "@/lib/api";
-import { ArrowLeft, TrendingUp, TrendingDown, ShoppingBag, IndianRupee, Receipt, Tag, Wallet, Package, CreditCard, Calendar, Download, BarChart3, PieChart as PieIcon, Layers, AlertTriangle } from "lucide-react";
-import Link from "next/link";
+import { TrendingUp, TrendingDown, ShoppingBag, IndianRupee, Receipt, Tag, Wallet, Package, CreditCard, Calendar, Download, BarChart3, PieChart as PieIcon, Layers, AlertTriangle } from "lucide-react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -129,7 +128,6 @@ export default function AnalyticsPage() {
           {/* Header */}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2.5">
-              <Link href="/"><Button variant="outline" size="sm" className="rounded-full gap-1.5"><ArrowLeft className="w-4 h-4" /> Billing</Button></Link>
               <h1 className="text-base font-semibold flex items-center gap-1.5"><BarChart3 className="w-4 h-4 text-primary" /> Analytics</h1>
               {data?.range && <Badge variant="secondary" className="hidden sm:flex rounded-full">{data.range.label} • {data.range.granularity}</Badge>}
             </div>

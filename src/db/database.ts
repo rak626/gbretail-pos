@@ -1,68 +1,8 @@
 import Dexie, { type Table } from "dexie";
+import type { Product, OrderItem, Customer, Order } from "@/types";
 
-export interface Product {
-  id: string;
-  name: string;
-  is_loose: boolean;
-  rate_per_kg?: number | null;
-  barcode?: string | null;
-  price?: number | null;
-  costPrice: number;
-  unit?: string;
-  category: string;
-  preset_weights?: number[];
-  preset_prices?: number[];
-  stockQuantity?: number;
-}
-
-export interface OrderItem {
-  id?: string;
-  orderId?: string;
-  productId?: string | null;
-  name: string;
-  price: number;
-  unit: string;
-  quantity?: number | null;
-  weight?: number | null;
-  lineTotal: number;
-  isCustom: boolean;
-  costPrice?: number | null;
-  category?: string | null;
-}
-
-export interface Customer {
-  id: string;
-  name: string;
-  phone: string | null;
-  email?: string | null;
-  address?: string | null;
-  notes?: string | null;
-  creditLimit?: number | null;
-  balance: number;
-  totalSpent?: number;
-  totalOrders?: number;
-  firstOrderAt?: number | string | Date | null;
-  lastOrderAt?: number | string | Date | null;
-  deletedAt?: number | string | Date | null;
-  createdAt: number | string | Date;
-  updatedAt: number | string | Date;
-}
-
-export interface Order {
-  id: string;
-  orderNumber?: string;
-  items: OrderItem[];
-  total: number;
-  discount: number;
-  paymentMethod: "cash" | "upi" | "khata" | "split";
-  customerId?: string | null;
-  customer?: Customer | null;
-  status: string;
-  syncedAt?: number | string | Date | null;
-  orderDate?: number | string | Date;
-  createdAt: number | string | Date;
-  updatedAt: number | string | Date;
-}
+// Re-export types for backward compat — single source is @/types
+export type { Product, OrderItem, Customer, Order } from "@/types";
 
 export class GbretailDB extends Dexie {
   products!: Table<Product, string>;

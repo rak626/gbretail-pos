@@ -1,8 +1,9 @@
 "use client";
 import { createOrder } from "@/lib/api";
-import { generateReceiptHTML } from "@/lib/print";
-import { formatUPIPaymentUrl } from "@/lib/utils";
-import type { CartItem } from "@/store/cartStore";
+import { generateReceiptHTML, printReceiptHTML } from "@/lib/print";
+import { formatUPIPaymentUrl, formatLooseQty } from "@/lib/format";
+import { generateOrderNumber } from "@/lib/format";
+import type { CartItem } from "@/types";
 
 export function buildOrderItems(items: CartItem[]) {
   return items.map((item) => ({
@@ -24,26 +25,25 @@ export function buildReceiptItems(items: CartItem[]) {
     unit: item.isCustom
       ? item.unit
       : item.weight
-        ? `${item.weight >= 1 ? item.weight.toFixed(3) + " kg" : Math.round(item.weight * 1000) + " g"}`
+        ? formatLooseQty(item.weight)
         : `${item.quantity || 1} ${item.unit}`,
     lineTotal: item.lineTotal,
+    price: item.price,
+    weight: item.weight,
+    quantity: item.quantity,
+    isCustom: item.isCustom,
   }));
 }
 
 export function printReceipt(
-  orderItems: { name: string; unit: string; lineTotal: number }[],
+  orderItems: { name: string; unit: string; lineTotal: number; price?: number; weight?: number | null; quantity?: number | null; isCustom?: boolean }[],
   total: number,
   disc: number,
   custName?: string,
   orderNumber?: string
 ) {
-  const html = generateReceiptHTML(orderItems, total, disc, custName, orderNumber ?? `ORD-${Date.now().toString(36).toUpperCase()}`);
-  const w = window.open("", "_blank");
-  if (w) {
-    w.document.write(html);
-    w.document.close();
-    w.print();
-  }
+  const html = generateReceiptHTML(orderItems, total, disc, custName, orderNumber ?? generateOrderNumber());
+  printReceiptHTML(html);
 }
 
 export async function saveOrder(

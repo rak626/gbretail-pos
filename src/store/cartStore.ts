@@ -1,22 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Product } from "@/db/database";
+import type { Product, CartItem } from "@/types";
+import { PRODUCT } from "@/config/constants";
 
-export interface CartItem {
-  productId?: string;
-  name: string;
-  price: number;
-  unit: string;
-  quantity?: number;
-  weight?: number;
-  lineTotal: number;
-  isCustom: boolean;
-  costPrice?: number;
-  category?: string;
-  preset_weights?: number[];
-  preset_prices?: number[];
-  is_loose?: boolean;
-}
+export type { CartItem } from "@/types";
 
 interface CartState {
   items: CartItem[];
@@ -46,6 +33,7 @@ interface CartState {
   clearCart: () => void;
   holdOrder: () => void;
   resumeOrder: (items: CartItem[]) => void;
+  resumeOrderByIndex: (index: number) => void;
   setCurrentCustomer: (customer: CartState["currentCustomer"]) => void;
   setOffline: (offline: boolean) => void;
   setSearchQuery: (query: string) => void;
@@ -92,6 +80,11 @@ export const useCartStore = create<CartState>()(
           let nextFreq = state.productFreq;
           if (id) {
             nextFreq = { ...state.productFreq, [id]: (state.productFreq[id] || 0) + 1 };
+            // Cap freq map to prevent unbounded localStorage growth
+            if (Object.keys(nextFreq).length > PRODUCT.MAX_FREQ_KEYS) {
+              const entries = Object.entries(nextFreq).sort((a, b) => b[1] - a[1]);
+              nextFreq = Object.fromEntries(entries.slice(0, PRODUCT.MAX_FREQ_KEYS));
+            }
           }
           return {
             items: [...state.items, item],
@@ -112,11 +105,16 @@ export const useCartStore = create<CartState>()(
 
       updateQty: (index, qty) =>
         set((state) => {
+          // Auto-remove when qty <= 0 — prevents ghost 0-qty items
+          if (qty <= 0) {
+            return { items: state.items.filter((_, i) => i !== index) };
+          }
           const items = [...state.items];
           if (items[index]) {
             items[index] = {
               ...items[index],
               quantity: qty,
+              weight: undefined,
               lineTotal: items[index].price * qty,
             };
           }
@@ -125,9 +123,15 @@ export const useCartStore = create<CartState>()(
 
       updateWeight: (index, weight) =>
         set((state) => {
+          // Guard 0/negative weight → remove
+          if (weight <= 0) {
+            return { items: state.items.filter((_, i) => i !== index) };
+          }
           const items = [...state.items];
           if (items[index]) {
             const rate = items[index].price;
+            // Guard divide safety: rate must be >0
+            if (rate <= 0) return { items };
             items[index] = {
               ...items[index],
               weight,
@@ -168,12 +172,28 @@ export const useCartStore = create<CartState>()(
         })),
 
       resumeOrder: (items) =>
-        set((state) => ({
-          items: [...state.items, ...items],
-          heldOrders: state.heldOrders.filter(
-            (_, i) => i !== state.heldOrders.indexOf(items)
-          ),
-        })),
+        set((state) => {
+          // Legacy: called with items array — find by reference, fallback to index param
+          const idx = state.heldOrders.indexOf(items);
+          if (idx === -1) {
+            // If not found (new array copy), do not mutate heldOrders — just append items
+            return { items: [...state.items, ...items] };
+          }
+          return {
+            items: [...state.items, ...items],
+            heldOrders: state.heldOrders.filter((_, i) => i !== idx),
+          };
+        }),
+      // Preferred: resume by index (avoids reference equality bug)
+      resumeOrderByIndex: (index: number) =>
+        set((state) => {
+          const held = state.heldOrders[index];
+          if (!held) return {};
+          return {
+            items: [...state.items, ...held],
+            heldOrders: state.heldOrders.filter((_, i) => i !== index),
+          };
+        }),
 
       setCurrentCustomer: (customer) => set({ currentCustomer: customer }),
       setOffline: (offline) => set({ isOffline: offline }),
@@ -229,7 +249,7 @@ export const useCartStore = create<CartState>()(
             if (!id) continue;
             recent = [id, ...recent.filter((r) => r !== id)];
           }
-          return { recentIds: recent.slice(0, 10) };
+          return { recentIds: recent.slice(0, PRODUCT.MAX_RECENT) };
         }),
     }),
     {
@@ -249,10 +269,26 @@ export const useCartStore = create<CartState>()(
   )
 );
 
-export function initializeOfflineDetection() {
+export function initializeOfflineDetection(): () => void {
   const store = useCartStore.getState();
   store.setOffline(!navigator.onLine);
 
-  window.addEventListener("online", () => store.setOffline(false));
-  window.addEventListener("offline", () => store.setOffline(true));
+  const onOnline = () => store.setOffline(false);
+  const onOffline = () => store.setOffline(true);
+  window.addEventListener("online", onOnline);
+  window.addEventListener("offline", onOffline);
+  // Return cleanup for useEffect
+  return () => {
+    window.removeEventListener("online", onOnline);
+    window.removeEventListener("offline", onOffline);
+  };
 }
+
+// Selectors — prefer these over subscribing to entire store to avoid rerenders
+export const selectCartItems = (s: CartState) => s.items;
+export const selectCartCount = (s: CartState) => s.items.length;
+export const selectGrandTotal = (s: CartState) => {
+  const subtotal = s.items.reduce((sum, it) => sum + it.lineTotal, 0);
+  return Math.max(0, subtotal - s.discount);
+};
+export const selectHeldOrders = (s: CartState) => s.heldOrders;
