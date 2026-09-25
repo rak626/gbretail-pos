@@ -77,5 +77,29 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   // if no user after check, will redirect, show guard
   if (!user) return null;
 
+  // STAFF is shop floor only: billing/orders/ledger always, inventory only when the
+  // owner granted it. Bounce everything else to /
+  const STAFF_BLOCKED = ["/customers", "/analytics", "/settings", "/admin", "/users"];
+  if (user.role === "STAFF") {
+    const staffDenied =
+      STAFF_BLOCKED.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ||
+      ((pathname === "/inventory" || pathname.startsWith("/inventory/")) && !(user as any)?.canManageInventory);
+    if (staffDenied) {
+      router.replace("/");
+      return null;
+    }
+    return <>{children}</>;
+  }
+
+  // SUPER_ADMIN is platform-level with no shop context: billing, orders and
+  // inventory are owner & staff only. Ledger, Customers, Analytics,
+  // Settings, Admin, Users stay accessible. Bounce the rest to /admin.
+  const SUPER_BLOCKED = ["/orders", "/inventory"];
+  const superDenied = pathname === "/" || SUPER_BLOCKED.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  if (user.role === "SUPER_ADMIN" && superDenied) {
+    router.replace("/admin");
+    return null;
+  }
+
   return <>{children}</>;
 }

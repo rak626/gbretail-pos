@@ -20,6 +20,7 @@ type SearchBoxProps = {
   disabled?: boolean;
   autoFocus?: boolean;
   variant?: "card" | "plain";
+  size?: "default" | "hero";
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 };
 
@@ -37,6 +38,7 @@ export default function SearchBox({
   disabled,
   autoFocus,
   variant = "card",
+  size = "default",
   onKeyDown,
 }: SearchBoxProps) {
   const [internalValue, setInternalValue] = useState(defaultValue);
@@ -134,7 +136,13 @@ export default function SearchBox({
   const content = (
     <>
       {leftIcon && (
-        <div className="w-7 h-7 rounded-md bg-primary/10 border flex items-center justify-center text-primary shrink-0 !min-h-0 !min-w-0">
+        <div
+          className={
+            size === "hero"
+              ? "w-10 h-10 rounded-xl bg-primary/10 border flex items-center justify-center text-primary shrink-0 !min-h-0 !min-w-0"
+              : "w-7 h-7 rounded-md bg-primary/10 border flex items-center justify-center text-primary shrink-0 !min-h-0 !min-w-0"
+          }
+        >
           {leftIcon}
         </div>
       )}
@@ -146,11 +154,20 @@ export default function SearchBox({
           onFocus={handleFocus}
           onKeyDown={onKeyDown}
           placeholder={placeholder}
-          className="flex-1 border-0 shadow-none focus-visible:ring-0 h-7 !min-h-0 !min-w-0 text-sm"
+          className={
+            size === "hero"
+              ? "flex-1 border-0 shadow-none focus-visible:ring-0 h-10 !min-h-0 !min-w-0 text-[16px]"
+              : "flex-1 border-0 shadow-none focus-visible:ring-0 h-7 !min-h-0 !min-w-0 text-sm"
+          }
           disabled={disabled}
           autoFocus={autoFocus}
         />
       </div>
+      {size === "hero" ? (
+        <kbd className="shrink-0 hidden sm:inline-block px-2 py-1 rounded-md bg-muted border text-[11px] font-semibold text-muted-foreground">
+          F2
+        </kbd>
+      ) : null}
       <Button
         variant="ghost"
         size="icon-sm"
@@ -166,6 +183,14 @@ export default function SearchBox({
 
   if (variant === "plain") {
     return <div className="flex items-center gap-2 flex-1 min-w-0">{content}</div>;
+  }
+
+  if (size === "hero") {
+    return (
+      <div className="w-full rounded-2xl border bg-card shadow-sm ring-1 ring-primary/10 focus-within:ring-primary/30 transition-shadow">
+        <div className="px-3 py-2 flex flex-row items-center gap-2.5">{content}</div>
+      </div>
+    );
   }
 
   return (

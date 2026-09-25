@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
-import AppShell from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,9 +15,12 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { formatINR } from "@/lib/utils";
 import { isLowStock, isOutOfStock, lowStockThresholdOf } from "@/lib/stock";
 import { fetchProducts, createProduct, updateProduct, deleteProduct } from "@/lib/api";
+import { fetchMe } from "@/lib/authApi";
+import { useConfirm } from "@/components/confirm-dialog";
+import { useAuthStore } from "@/store/authStore";
 import type { Product } from "@/db/database";
 import SearchBox from "@/components/SearchBox";
-import { Search, Plus, Package, AlertTriangle, Boxes, Pencil, Trash2, Minus, TrendingUp, PackagePlus } from "lucide-react";
+import { Search, Plus, Package, AlertTriangle, Boxes, Pencil, Trash2, Minus, TrendingUp, PackagePlus, Shield } from "lucide-react";
 
 const CATEGORIES = ["All", "Staples", "Loose Items", "Packaged", "Snacks", "Dairy", "Vegetables", "Spices"] as const;
 
@@ -59,6 +61,33 @@ export default function InventoryPage() {
   const searchRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const actor = useAuthStore((s) => s.user);
+  const { confirm, notify } = useConfirm();
+  const isStaff = actor?.role === "STAFF";
+  // STAFF needs an explicit owner grant; refresh from server on mount so an
+  // owner grant/revoke applies without forcing staff to re-login.
+  const [grantChecked, setGrantChecked] = useState(!isStaff);
+  useEffect(() => {
+    if (!isStaff) return;
+    let cancelled = false;
+    fetchMe()
+      .then((data) => {
+        if (cancelled) return;
+        const fresh = (data as any)?.user;
+        if (fresh) {
+          const state = useAuthStore.getState();
+          if (state.user) useAuthStore.setState({ user: { ...state.user, canManageInventory: Boolean(fresh.canManageInventory) } });
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setGrantChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isStaff]);
+  const hasInventoryAccess = !isStaff || Boolean((actor as any)?.canManageInventory);
 
   // dialog
   const [open, setOpen] = useState(false);
@@ -96,9 +125,13 @@ export default function InventoryPage() {
   }, [search]);
 
   useEffect(() => {
+    if (!grantChecked) return;
+    if (!hasInventoryAccess) {
+      setLoading(false);
+      return;
+    }
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [grantChecked, hasInventoryAccess, load]);
 
   // Same as product search: focus shortcut
   useEffect(() => {
@@ -301,12 +334,18 @@ export default function InventoryPage() {
   };
 
   const handleDelete = async (p: Product) => {
-    if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: `Delete "${p.name}"?`,
+      description: "This cannot be undone. Past orders keep their history.",
+      confirmText: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await deleteProduct(p.id);
       await load();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Delete failed");
+      await notify({ title: "Delete failed", description: e instanceof Error ? e.message : "Delete failed", danger: true });
     }
   };
 
@@ -316,12 +355,26 @@ export default function InventoryPage() {
       await updateProduct(p.id, { stockQuantity: newQty });
       setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, stockQuantity: newQty } : x)));
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Stock update failed");
+      await notify({ title: "Stock update failed", description: e instanceof Error ? e.message : "Stock update failed", danger: true });
     }
   };
 
   return (
-    <AppShell>
+    <>
+      {!grantChecked ? (
+        <div className="flex-1 flex items-center justify-center p-8 text-sm text-muted-foreground">Checking inventory access...</div>
+      ) : !hasInventoryAccess ? (
+        <div className="flex-1 flex items-center justify-center p-8">
+          <Card className="max-w-md w-full">
+            <CardContent className="p-6 text-center">
+              <Shield className="w-10 h-10 mx-auto text-destructive mb-3" />
+              <div className="font-semibold">Access Denied</div>
+              <div className="text-xs text-muted-foreground mt-1">Inventory access is granted by your shop owner. Ask the owner to enable Stock access for your account.</div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+      <>
       <div className="flex-1 flex flex-col overflow-auto p-4 pb-6 min-h-0">
         <div className="max-w-7xl mx-auto space-y-4 w-full flex-1 flex flex-col min-h-0">
           {/* Header stats */}
@@ -736,6 +789,8 @@ export default function InventoryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AppShell>
+      </>
+      )}
+    </>
   );
 }

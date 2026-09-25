@@ -20,23 +20,22 @@ export default function CartTable() {
   const isEmpty = displayItems.length === 0;
 
   return (
-    <Card className="flex flex-col overflow-hidden py-0 gap-0 rounded-xl shadow-sm border">
+    <Card className="flex flex-col overflow-hidden py-0 gap-0 rounded-2xl border flex-1 min-h-0">
       <CardHeader className="flex flex-row items-center justify-between py-3 px-4 border-b bg-muted/20">
-        <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <span className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-sm">
-            <ShoppingBag className="w-3.5 h-3.5" />
+        <CardTitle className="text-[15px] font-bold flex items-center gap-2">
+          <span className="w-8 h-8 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-sm">
+            <ShoppingBag className="w-4 h-4" />
           </span>
           Cart
-          <Badge variant="secondary" className="font-bold rounded-full px-2.5" suppressHydrationWarning>{displayItems.length}</Badge>
-          <span className="hidden sm:inline text-xs font-normal text-muted-foreground -ml-1">{displayItems.length===1?"item":"items"}</span>
+          <Badge variant="secondary" className="font-bold rounded-full px-2.5 text-[13px]" suppressHydrationWarning>{displayItems.length}</Badge>
         </CardTitle>
-        <Button variant="ghost" size="sm" onClick={clearCart} className="h-7 text-xs gap-1.5 rounded-full text-destructive hover:text-destructive hover:bg-destructive/10">
+        <Button variant="ghost" size="sm" onClick={clearCart} className="h-9 text-[13px] gap-1.5 rounded-full text-destructive hover:text-destructive hover:bg-destructive/10 px-3">
           Clear
         </Button>
       </CardHeader>
 
       <CardContent className="p-0 flex-1 flex flex-col min-h-[160px]">
-        <ScrollArea className="flex-1 max-h-[420px] lg:max-h-[520px]">
+        <ScrollArea className="flex-1 min-h-[200px]">
           {isEmpty ? (
             <div className="py-10 px-6 text-center flex flex-col items-center justify-center min-h-[280px]">
               <div className="w-16 h-16 rounded-2xl bg-muted/50 border-2 border-dashed flex items-center justify-center mb-4">

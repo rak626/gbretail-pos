@@ -7,6 +7,8 @@ export type AuthUser = {
   email: string;
   name: string;
   role: string;
+  /** Owner-granted: STAFF with this flag can open + edit inventory */
+  canManageInventory?: boolean;
   shop?: { id: string; name: string } | null;
 };
 
