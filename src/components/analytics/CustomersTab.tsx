@@ -57,13 +57,13 @@ export default function CustomersTab({ sections }: Props) {
       <Card className="py-0 overflow-hidden">
         <CardHeader className="py-3 border-b flex-row items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2"><Users className="w-4 h-4 text-primary" /> Top Customers</CardTitle>
-          <Badge variant="outline" className="text-xs">by lifetime spend</Badge>
+          <Badge variant="outline" className="text-xs">this shop's spend</Badge>
         </CardHeader>
         <CardContent className="p-0">
           {top.length === 0 ? <div className="p-8 text-center text-sm text-muted-foreground">No customers yet</div> : (
             <Table>
               <TableHeader>
-                <TableRow><TableHead>#</TableHead><TableHead>Customer</TableHead><TableHead className="text-right">Orders</TableHead><TableHead className="text-right">Total Spent</TableHead><TableHead className="text-right">Due</TableHead></TableRow>
+                      <TableRow><TableHead>#</TableHead><TableHead>Customer</TableHead><TableHead className="text-right">Orders</TableHead><TableHead className="text-right">Spent (shop)</TableHead><TableHead className="text-right">Due</TableHead></TableRow>
               </TableHeader>
               <TableBody>
                 {top.map((t, idx) => (
@@ -85,6 +85,9 @@ export default function CustomersTab({ sections }: Props) {
           )}
         </CardContent>
       </Card>
+      <div className="text-[11px] text-muted-foreground text-center pb-2">
+        Spend & orders counted in this shop only • dues show the full outstanding balance
+      </div>
     </div>
   );
 }
