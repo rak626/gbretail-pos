@@ -89,6 +89,8 @@ export async function createOrder(payload: {
   customerPhone?: string;
   creditDays?: number;
   customDays?: number;
+  counterId?: string;
+  shopId?: string;
 }) {
   const data = await apiClient.post<{ order: Order }>("/api/orders", payload);
   return data.order;
@@ -131,7 +133,7 @@ export async function fetchDueToday(q?: string, includeOverdue?: boolean) {
   });
 }
 
-export async function createLedgerEntry(payload: { customerId?: string; customerName?: string; customerPhone?: string; amount: number; creditDays?: number; customDays?: number; note?: string; orderId?: string }) {
+export async function createLedgerEntry(payload: { customerId?: string; customerName?: string; customerPhone?: string; amount: number; creditDays?: number; customDays?: number; note?: string; orderId?: string; counterId?: string; shopId?: string }) {
   return apiClient.post<{ entry: unknown }>("/api/ledger", payload);
 }
 

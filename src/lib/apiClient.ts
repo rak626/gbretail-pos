@@ -15,6 +15,7 @@ export class ApiError extends Error {
   isNotFound(): boolean { return this.status === 404; }
   isConflict(): boolean { return this.status === 409; }
   isDbNotConfigured(): boolean { return this.status === 503 || this.code === "DB_NOT_CONFIGURED"; }
+  isUnauthorized(): boolean { return this.status === 401; }
 }
 
 async function parseJson(res: Response): Promise<Record<string, unknown>> {
@@ -33,6 +34,23 @@ export async function handleResponse<T>(res: Response): Promise<T> {
 
 export type RequestOpts = { signal?: AbortSignal };
 
+// Token helpers — client side only
+function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem("accessToken");
+  } catch {
+    return null;
+  }
+}
+
+function buildHeaders(extra?: Record<string, string>): Record<string, string> {
+  const h: Record<string, string> = { "Content-Type": "application/json", ...(extra || {}) };
+  const token = getAuthToken();
+  if (token) h["Authorization"] = `Bearer ${token}`;
+  return h;
+}
+
 function qs(params: Record<string, string | number | undefined | null>): string {
   const search = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
@@ -42,31 +60,67 @@ function qs(params: Record<string, string | number | undefined | null>): string 
   return s ? `?${s}` : "";
 }
 
+async function fetchWithAuth(url: string, init: RequestInit): Promise<Response> {
+  // include cookies for refresh flow
+  init.credentials = "include";
+  init.headers = buildHeaders(init.headers as Record<string, string>);
+  let res = await fetch(url, init);
+  // on 401, try refresh once
+  if (res.status === 401 && !init.headers) {
+    // already tried
+  }
+  if (res.status === 401) {
+    const path = new URL(url, typeof window !== "undefined" ? window.location.origin : "http://localhost").pathname;
+    // don't infinite loop on auth endpoints
+    if (!path.includes("/api/auth/")) {
+      try {
+        const refreshRes = await fetch(`${API_BASE}/api/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+          headers: buildHeaders(),
+        });
+        if (refreshRes.ok) {
+          const data = await refreshRes.json().catch(() => ({}));
+          const newToken = (data as any).accessToken;
+          if (newToken && typeof window !== "undefined") {
+            localStorage.setItem("accessToken", newToken);
+          }
+          // retry original request with new token
+          init.headers = buildHeaders(init.headers as Record<string, string>);
+          res = await fetch(url, init);
+        }
+      } catch {
+        // refresh failed — will handle as 401 below
+      }
+    }
+  }
+  return res;
+}
+
 export const apiClient = {
   get<T>(path: string, params?: Record<string, string | number | undefined | null>, opts?: RequestOpts): Promise<T> {
     const url = `${API_BASE}${path}${params ? qs(params) : ""}`;
-    return fetch(url, { signal: opts?.signal }).then(handleResponse<T>);
+    return fetchWithAuth(url, { signal: opts?.signal, method: "GET" } as RequestInit).then(handleResponse<T>);
   },
   post<T>(path: string, body?: unknown, opts?: RequestOpts): Promise<T> {
-    return fetch(`${API_BASE}${path}`, {
+    return fetchWithAuth(`${API_BASE}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,
       signal: opts?.signal,
-    }).then(handleResponse<T>);
+    } as RequestInit).then(handleResponse<T>);
   },
   patch<T>(path: string, body?: unknown, opts?: RequestOpts): Promise<T> {
-    return fetch(`${API_BASE}${path}`, {
+    return fetchWithAuth(`${API_BASE}${path}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,
       signal: opts?.signal,
-    }).then(handleResponse<T>);
+    } as RequestInit).then(handleResponse<T>);
   },
   delete<T>(path: string, opts?: RequestOpts): Promise<T> {
-    return fetch(`${API_BASE}${path}`, { method: "DELETE", signal: opts?.signal }).then(handleResponse<T>);
+    return fetchWithAuth(`${API_BASE}${path}`, { method: "DELETE", signal: opts?.signal } as RequestInit).then(handleResponse<T>);
   },
   exportUrl(path: string, params?: Record<string, string | number | undefined | null>): string {
+    // export needs auth via header? For now return URL — caller can fetch with auth or window.open (cookie)
     return `${API_BASE}${path}${params ? qs(params) : ""}`;
   },
 };

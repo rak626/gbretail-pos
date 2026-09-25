@@ -5,6 +5,7 @@ import { useCartStore } from "@/store/cartStore";
 import { formatINR, formatUPIPaymentUrl } from "@/lib/utils";
 import { generateReceiptHTML } from "@/lib/print";
 import { createOrder } from "@/lib/api";
+import { useAuthStore } from "@/store/authStore";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,7 @@ export default function PaymentModal() {
   const [customDays, setCustomDays] = useState("");
   const [splitCash, setSplitCash] = useState("");
   const [splitUpi, setSplitUpi] = useState("");
+  const selectedCounterId = useAuthStore((s) => s.selectedCounterId);
   const [saving, setSaving] = useState(false);
   const grandTotal = calculateGrandTotal();
 
@@ -89,7 +91,8 @@ export default function PaymentModal() {
         customerName: extra?.customerName ?? currentCustomer?.name,
         customerPhone: extra?.customerPhone ?? currentCustomer?.phone,
         creditDays: extra?.creditDays,
-      })) as unknown as { orderNumber: string; customer?: { id: string; name: string; phone: string | null; balance: number; createdAt: string; updatedAt: string } };
+        counterId: selectedCounterId ?? undefined,
+      } as any)) as unknown as { orderNumber: string; customer?: { id: string; name: string; phone: string | null; balance: number; createdAt: string; updatedAt: string } };
       return order as unknown as { orderNumber: string; customer?: unknown };
     } catch (e) {
       console.warn("[PaymentModal] order save failed, proceeding offline:", e instanceof Error ? e.message : e);

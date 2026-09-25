@@ -1,15 +1,20 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import { useSidebarStore } from "@/store/sidebarStore";
+import { useAuthStore } from "@/store/authStore";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ModeToggle } from "@/components/mode-toggle";
-import { ShoppingCart, Clock3, Wifi, WifiOff, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ShoppingCart, Clock3, Wifi, WifiOff, Menu, PanelLeftClose, PanelLeftOpen, LogOut, Store, Monitor } from "lucide-react";
+import { logoutApi } from "@/lib/authApi";
 
 export default function TopBar() {
+  const router = useRouter();
   const [time, setTime] = useState("");
   const [barcodeInput, setBarcodeInput] = useState("");
   const [showBarcode, setShowBarcode] = useState(false);
@@ -17,6 +22,12 @@ export default function TopBar() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [online, setOnline] = useState(true);
   const { collapsed, toggleCollapsed, toggleMobile } = useSidebarStore();
+  const user = useAuthStore((s) => s.user);
+  const shop = useAuthStore((s) => s.shop);
+  const counters = useAuthStore((s) => s.counters);
+  const selectedCounterId = useAuthStore((s) => s.selectedCounterId);
+  const setSelectedCounter = useAuthStore((s) => s.setSelectedCounter);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
 
   useEffect(() => {
     setTime(new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }));
@@ -98,6 +109,47 @@ export default function TopBar() {
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
+        {user && shop && (
+          <div className="hidden lg:flex items-center gap-2 bg-black/15 rounded-full px-2 py-1 border border-white/10">
+            <Store className="w-3.5 h-3.5 text-white" />
+            <span className="text-xs font-semibold text-white max-w-[120px] truncate">{shop.name}</span>
+            {counters.length > 0 && (
+              <Select value={selectedCounterId ?? undefined} onValueChange={(v) => setSelectedCounter(v)}>
+                <SelectTrigger className="h-6 w-[130px] text-xs bg-white text-primary border-0">
+                  <SelectValue placeholder="Select counter" />
+                </SelectTrigger>
+                <SelectContent>
+                  {counters.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      <span className="flex items-center gap-1.5"><Monitor className="w-3 h-3" /> {c.name}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        )}
+        {user && (
+          <div className="hidden md:flex items-center gap-1.5 bg-black/15 rounded-full px-2.5 py-1 border border-white/10">
+            <span className="text-xs font-medium text-white truncate max-w-[100px]">{user.name}</span>
+            <Badge variant="secondary" className="h-5 text-[10px] bg-white text-primary px-1.5">{user.role}</Badge>
+          </div>
+        )}
+        {user && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-white hover:bg-white/10 hover:text-white"
+            title="Logout"
+            onClick={async () => {
+              try { await logoutApi(); } catch {}
+              clearAuth();
+              router.replace("/login");
+            }}
+          >
+            <LogOut className="w-4 h-4" />
+          </Button>
+        )}
         {showBarcode && (
           <div className="flex items-center gap-2 bg-card rounded-xl p-1 border shadow-sm">
             <Input ref={inputRef} value={barcodeInput} onChange={e=>setBarcodeInput(e.target.value)} onKeyDown={e=> e.key==="Enter" && submit()} placeholder="Scan barcode..." className="h-8 w-40 bg-transparent border-0 focus-visible:ring-0 text-foreground" autoFocus />

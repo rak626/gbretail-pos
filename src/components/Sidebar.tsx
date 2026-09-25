@@ -15,7 +15,10 @@ import {
   BookOpen,
   BarChart3,
   Users,
+  Settings,
+  Shield,
 } from "lucide-react";
+import { useAuthStore } from "@/store/authStore";
 
 type NavItem = {
   href: string;
@@ -23,7 +26,7 @@ type NavItem = {
   icon: React.ElementType;
 };
 
-const NAV_ITEMS: NavItem[] = [
+const BASE_NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Billing", icon: ShoppingCart },
   { href: "/orders", label: "Orders", icon: Receipt },
   { href: "/inventory", label: "Inventory", icon: LayoutDashboard },
@@ -35,6 +38,21 @@ const NAV_ITEMS: NavItem[] = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { collapsed, mobileOpen, closeMobile, toggleCollapsed } = useSidebarStore();
+  const user = useAuthStore((s) => s.user);
+
+  const navItems = (() => {
+    const items = [...BASE_NAV_ITEMS];
+    if (user?.role === "SUPER_ADMIN") {
+      items.push({ href: "/admin", label: "Admin", icon: Shield });
+      items.push({ href: "/users", label: "Users", icon: Users });
+    } else if (user?.role === "SHOP_OWNER") {
+      items.push({ href: "/settings", label: "Settings", icon: Settings });
+      items.push({ href: "/users", label: "Users", icon: Users });
+    } else if (user?.role === "STAFF") {
+      items.push({ href: "/settings", label: "Settings", icon: Settings });
+    }
+    return items;
+  })();
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
@@ -50,7 +68,7 @@ export default function Sidebar() {
       )}
     >
       <nav className="flex-1 flex flex-col gap-1 p-2 pt-3">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const active = isActive(item.href);
           const Icon = item.icon;
           return (
@@ -119,7 +137,7 @@ export default function Sidebar() {
           </Button>
         </div>
         <nav className="flex-1 flex flex-col gap-1 p-3">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const active = isActive(item.href);
             const Icon = item.icon;
             return (

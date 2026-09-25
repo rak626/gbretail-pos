@@ -15,6 +15,7 @@ import SearchBox from "@/components/SearchBox";
 import { formatINR } from "@/lib/utils";
 import { fetchCustomers, fetchLedger, fetchDueToday, createLedgerEntry, settleLedgerEntry } from "@/lib/api";
 import type { Customer } from "@/db/database";
+import { useAuthStore } from "@/store/authStore";
 import { BookOpen, Plus, Search, Calendar, Phone, User, CheckCircle2, AlertTriangle, Clock3, Wallet, Undo2, Trash2 } from "lucide-react";
 
 type LedgerEntryUI = {
@@ -42,6 +43,7 @@ const TERM_OPTIONS: Array<{ value: "7" | "15" | "30" | "custom"; label: string }
 ];
 
 export default function LedgerPage() {
+  const selectedCounterId = useAuthStore((s) => s.selectedCounterId);
   const [filter, setFilter] = useState<Filter>("dueToday");
   const [search, setSearch] = useState("");
   const [entries, setEntries] = useState<LedgerEntryUI[]>([]);
@@ -207,7 +209,8 @@ export default function LedgerPage() {
         amount: amt,
         creditDays: days,
         note: note.trim() || undefined,
-      });
+        counterId: selectedCounterId ?? undefined,
+      } as any);
       setAddOpen(false);
       setAmountStr("");
       setTerm("15");
