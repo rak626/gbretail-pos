@@ -6,7 +6,7 @@ import { useTheme } from "@/components/theme-provider"
 
 import { Button } from "@/components/ui/button"
 
-export function ModeToggle() {
+export function ModeToggle({ className = "text-white hover:bg-white/10 hover:text-white" }: { className?: string }) {
   const { theme, setTheme } = useTheme()
 
   return (
@@ -14,7 +14,7 @@ export function ModeToggle() {
       variant="ghost"
       size="icon-sm"
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      className="text-white hover:bg-white/10 hover:text-white"
+      className={className}
       aria-label="Toggle theme"
     >
       <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />

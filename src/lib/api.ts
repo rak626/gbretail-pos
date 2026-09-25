@@ -183,6 +183,28 @@ export function getAnalyticsExportUrl(params?: { preset?: string; from?: string;
   });
 }
 
+export type AnalyticsSections = {
+  range: { preset: string; label: string; start: string; end: string };
+  scope: { shopId: string | null; role: string; staffRole: string };
+  staff: { id: string; name: string; role: string; isActive: boolean; shopId: string | null; shopName: string | null; orders: number; revenue: number; avgBill: number; units: number; discount: number }[];
+  customers: {
+    newCount: number; activeCount: number; repeatCount: number; retentionPct: number; avgCustomerValue: number;
+    top: { id: string; name: string; phone: string | null; totalSpent: number; totalOrders: number; balance: number }[];
+    defaulters: { id: string; name: string; phone: string | null; balance: number; totalOrders: number }[];
+  };
+  shops: { id: string; name: string; isActive: boolean; orders: number; revenue: number; avgBill: number }[] | null;
+  counters: { id: string; name: string; isActive: boolean; orders: number; revenue: number; avgBill: number }[] | null;
+};
+
+export async function fetchAnalyticsSections(params?: { preset?: string; from?: string; to?: string; shopId?: string }) {
+  return apiClient.get<AnalyticsSections>("/api/analytics/sections", {
+    preset: params?.preset,
+    from: params?.from,
+    to: params?.to,
+    shopId: params?.shopId,
+  });
+}
+
 export async function fetchHealth() {
   return apiClient.get<{ status: string; db: string }>("/api/health");
 }

@@ -1,39 +1,34 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, LogOut, Monitor } from "lucide-react";
-import { logoutApi } from "@/lib/authApi";
+import { ShoppingCart, Clock3 } from "lucide-react";
+import { ModeToggle } from "@/components/mode-toggle";
+import { useOnlineStore, OnlineDot } from "@/store/onlineStore";
+import UserMenu from "@/components/UserMenu";
+import CounterPicker from "@/components/CounterPicker";
 
 /**
- * Kiosk top strip — minimal to reduce cashier fatigue.
- * Only: brand, shop+counter, staff, online dot, logout.
- * No clock text, no theme toggle (kiosk is light-only for contrast).
+ * Kiosk top strip — same status pills as the admin TopBar (clock, online,
+ * theme) so staff get identical orientation on billing and admin screens.
  */
 export default function PosTopStrip() {
-  const router = useRouter();
-  const [online, setOnline] = useState(true);
-  const user = useAuthStore((s) => s.user);
+  const [time, setTime] = useState("");
+  const startOnline = useOnlineStore((s) => s.start);
+  const stopOnline = useOnlineStore((s) => s.stop);
   const shop = useAuthStore((s) => s.shop);
-  const counters = useAuthStore((s) => s.counters);
-  const selectedCounterId = useAuthStore((s) => s.selectedCounterId);
-  const setSelectedCounter = useAuthStore((s) => s.setSelectedCounter);
-  const clearAuth = useAuthStore((s) => s.clearAuth);
 
   useEffect(() => {
-    const on = () => setOnline(true);
-    const off = () => setOnline(false);
-    window.addEventListener("online", on);
-    window.addEventListener("offline", off);
-    setOnline(navigator.onLine);
-    return () => {
-      window.removeEventListener("online", on);
-      window.removeEventListener("offline", off);
-    };
+    startOnline();
+    return () => stopOnline();
+  }, [startOnline, stopOnline]);
+
+  useEffect(() => {
+    const tick = () => setTime(new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }));
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
   }, []);
 
   return (
@@ -46,54 +41,17 @@ export default function PosTopStrip() {
           <div className="font-bold tracking-tight text-[15px] leading-none">GB RETAIL</div>
           {shop && <div className="text-[11px] text-muted-foreground font-medium truncate max-w-[160px]">{shop.name}</div>}
         </div>
-        {shop && counters.length > 0 && (
-          <Select value={selectedCounterId ?? undefined} onValueChange={(v) => setSelectedCounter(v)}>
-            <SelectTrigger className="h-9 w-[140px] text-[13px] font-medium ml-1">
-              <SelectValue placeholder="Counter" />
-            </SelectTrigger>
-            <SelectContent>
-              {counters.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  <span className="flex items-center gap-1.5">
-                    <Monitor className="w-3 h-3" /> {c.name}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+        <CounterPicker />
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        {user && (
-          <div className="flex items-center gap-2 pl-1 pr-1 py-1">
-            <span className="hidden sm:block text-[13px] font-semibold truncate max-w-[110px]">{user.name}</span>
-            <Badge variant="secondary" className="h-6 text-[11px] px-2 rounded-full hidden md:inline-flex">
-              {user.role}
-            </Badge>
-          </div>
-        )}
-        <span
-          title={online ? "Online" : "Offline"}
-          className={`w-2.5 h-2.5 rounded-full shrink-0 ${online ? "bg-primary" : "bg-amber-500"}`}
-        />
-        {user && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 rounded-full"
-            title="Logout"
-            onClick={async () => {
-              try {
-                await logoutApi();
-              } catch {}
-              clearAuth();
-              router.replace("/login");
-            }}
-          >
-            <LogOut className="w-5 h-5" />
-          </Button>
-        )}
+        <Badge variant="outline" className="hidden lg:flex items-center gap-1.5 rounded-full">
+          <Clock3 className="w-3.5 h-3.5" />
+          <span className="text-xs font-medium tabular-nums opacity-95">{time || "—"}</span>
+        </Badge>
+        <OnlineDot />
+        <ModeToggle className="text-muted-foreground hover:text-foreground hover:bg-muted" />
+        <UserMenu />
       </div>
     </header>
   );

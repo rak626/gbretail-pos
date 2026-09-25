@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { fetchCounters } from "@/lib/authApi";
 
 export type AuthUser = {
   id: string;
@@ -9,6 +10,9 @@ export type AuthUser = {
   role: string;
   /** Owner-granted: STAFF with this flag can open + edit inventory */
   canManageInventory?: boolean;
+  /** Owner-assigned till: STAFF bill on this counter (auto-attached at login) */
+  counterId?: string | null;
+  counter?: { id: string; name: string } | null;
   shop?: { id: string; name: string } | null;
 };
 
@@ -44,12 +48,20 @@ export const useAuthStore = create<AuthState>()(
       setAuth: (token, user, shop, counters) =>
         set(() => {
           if (typeof window !== "undefined") localStorage.setItem("accessToken", token);
+          // STAFF are bound to their assigned counter — ignore any persisted
+          // or login-time choice so the header can never drift counters.
+          const selectedCounterId =
+            user.role === "STAFF"
+              ? (user.counterId ?? null)
+              : counters && counters.length
+                ? counters[0].id
+                : null;
           return {
             accessToken: token,
             user,
             shop: shop ?? (user.shop ?? null),
             counters: counters ?? [],
-            selectedCounterId: counters && counters.length ? counters[0].id : null,
+            selectedCounterId,
           };
         }),
       setCounters: (counters) => set({ counters }),
@@ -83,3 +95,25 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+/**
+ * Re-sync the global counter list after a mutation (add/delete/restore).
+ * Header pickers read this store, which is otherwise loaded only at login —
+ * without this, newly created counters stay invisible until re-login.
+ * Also heals the selection when the selected counter no longer exists.
+ */
+export async function refreshShopCounters(): Promise<void> {
+  const { user, selectedCounterId } = useAuthStore.getState();
+  if (!user?.shopId) return;
+  try {
+    const data = await fetchCounters(user.shopId);
+    const list = data.counters ?? [];
+    const patch: { counters: Counter[]; selectedCounterId?: string | null } = { counters: list };
+    if (!list.some((c) => c.id === selectedCounterId)) {
+      patch.selectedCounterId = list[0]?.id ?? null;
+    }
+    useAuthStore.setState(patch);
+  } catch {
+    // Keep the stale list — the calling page surfaces its own error state.
+  }
+}

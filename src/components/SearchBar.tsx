@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useCartStore } from "@/store/cartStore";
-import { products as staticProducts } from "@/data/products";
+import { useCatalogStore } from "@/store/catalogStore";
 import type { Product } from "@/db/database";
 import { formatINR } from "@/lib/utils";
 import { isLowStock, isOutOfStock } from "@/lib/stock";
@@ -14,6 +14,9 @@ import { Barcode } from "lucide-react";
 
 export default function SearchBar({ size = "default" }: { size?: "default" | "hero" }) {
   const { searchQuery, setSearchQuery, openLooseModal, addItem } = useCartStore();
+  const catalog = useCatalogStore((s) => s.products);
+  const loadCatalog = useCatalogStore((s) => s.loadCatalog);
+  useEffect(() => { loadCatalog(); }, [loadCatalog]);
   const [results, setResults] = useState<Product[]>([]);
   const [show, setShow] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
@@ -57,7 +60,7 @@ export default function SearchBar({ size = "default" }: { size?: "default" | "he
       setShow(false);
       return;
     }
-    const local = staticProducts
+    const local = catalog
       .filter((p) => p.name.toLowerCase().includes(trimmed.toLowerCase()) || (p.barcode ?? "").includes(trimmed))
       .slice(0, 10) as unknown as Product[];
     setResults(local);
@@ -71,7 +74,7 @@ export default function SearchBar({ size = "default" }: { size?: "default" | "he
       setShow(false);
       return;
     }
-    const local = staticProducts
+    const local = catalog
       .filter((p) => p.name.toLowerCase().includes(trimmed.toLowerCase()) || (p.barcode ?? "").includes(trimmed))
       .slice(0, 10) as unknown as Product[];
     doSearchApi(trimmed, local);
@@ -91,7 +94,7 @@ export default function SearchBar({ size = "default" }: { size?: "default" | "he
       setShow(true);
       return;
     }
-    const local = staticProducts
+    const local = catalog
       .filter((p) => p.name.toLowerCase().includes(trimmed.toLowerCase()) || (p.barcode ?? "").includes(trimmed))
       .slice(0, 10) as unknown as Product[];
     setResults(local);

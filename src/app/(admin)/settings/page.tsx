@@ -4,21 +4,45 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore, refreshShopCounters } from "@/store/authStore";
 import { apiClient } from "@/lib/apiClient";
 import { useConfirm } from "@/components/confirm-dialog";
-import { Settings, Monitor, Plus, Trash2, Store, Users } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Settings, Monitor, Plus, Trash2, Store, Users, ChevronRight } from "lucide-react";
+
+type ShopUser = { id: string; name: string; email: string; role: string; isActive: boolean; counterId?: string | null };
+
+/** First missing generic number: {Counter 1, Counter 3} → "Counter 2". */
+export function nextCounterName(existing: { name: string }[]): string {
+  const taken = new Set<number>();
+  for (const c of existing) {
+    const m = /^\s*counter\s+(\d+)\s*$/i.exec(c.name ?? "");
+    if (m) taken.add(parseInt(m[1], 10));
+  }
+  let n = 1;
+  while (taken.has(n)) n += 1;
+  return `Counter ${n}`;
+}
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
 export default function SettingsPage() {
   const user = useAuthStore((s) => s.user);
   const shop = useAuthStore((s) => s.shop);
   const { confirm, notify } = useConfirm();
   const [counters, setCounters] = useState<{ id: string; name: string; isActive: boolean; shopId: string }[]>([]);
-  const [newCounter, setNewCounter] = useState("");
+  const [shopUsers, setShopUsers] = useState<ShopUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     if (!user?.shopId) return;
@@ -26,6 +50,12 @@ export default function SettingsPage() {
     try {
       const cData = await apiClient.get<{ counters: typeof counters }>("/api/counters", { shopId: user.shopId } as any);
       setCounters(cData.counters);
+      try {
+        const uData = await apiClient.get<{ users: ShopUser[] }>("/api/users");
+        setShopUsers(uData.users.filter((u) => u.role === "STAFF"));
+      } catch {
+        setShopUsers([]);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -35,19 +65,54 @@ export default function SettingsPage() {
 
   useEffect(() => { load(); }, [user?.shopId]);
 
-  const handleDeleteCounter = async (id: string, name: string) => {
+  const staffOf = (counterId: string) => shopUsers.filter((u) => u.counterId === counterId);
+  const detail = counters.find((c) => c.id === detailId) ?? null;
+  const detailStaff = detail ? staffOf(detail.id) : [];
+  const previewName = nextCounterName(counters);
+
+  const handleDeleteCounter = async () => {
+    if (!detail) return;
+    const attached = staffOf(detail.id);
     const ok = await confirm({
-      title: `Delete counter "${name}"?`,
-      description: "Bills already recorded on this counter will remain.",
+      title: `Delete counter "${detail.name}"?`,
+      description:
+        attached.length > 0
+          ? `${attached.map((s) => s.name).join(", ")} ${attached.length === 1 ? "bills" : "bill"} here — they will fall back to auto-assign at next login. Past bills remain.`
+          : "Bills already recorded on this counter will remain.",
       confirmText: "Delete",
       danger: true,
     });
     if (!ok) return;
+    setDeleting(true);
     try {
-      await apiClient.delete(`/api/counters/${id}`);
+      await apiClient.delete(`/api/counters/${detail.id}`);
+      setDetailId(null);
       await load();
+      // Header picker reads the login-time list — sync it too.
+      await refreshShopCounters();
     } catch (e) {
       await notify({ title: "Delete failed", description: e instanceof Error ? e.message : "Delete failed", danger: true });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleAddCounter = async () => {
+    if (adding) return;
+    setAdding(true);
+    setError("");
+    try {
+      // No name sent — backend creates the first missing number (Counter 2 fills gaps).
+      await apiClient.post("/api/counters", {});
+      setAddOpen(false);
+      await load();
+      // Header picker reads the login-time list — sync it too.
+      await refreshShopCounters();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
+      setAddOpen(false);
+    } finally {
+      setAdding(false);
     }
   };
 
@@ -71,17 +136,6 @@ export default function SettingsPage() {
 
   const canManage = user.role === "SHOP_OWNER" || user.role === "SUPER_ADMIN";
 
-  const handleCreateCounter = async () => {
-    if (!newCounter.trim()) return;
-    try {
-      await apiClient.post("/api/counters", { name: newCounter.trim() });
-      setNewCounter("");
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed");
-    }
-  };
-
   return (
     <>
       <div className="flex-1 overflow-auto p-3">
@@ -89,7 +143,7 @@ export default function SettingsPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-base font-semibold flex items-center gap-2"><Settings className="w-4 h-4 text-primary" /> Settings — {shop?.name ?? "Shop"}</h1>
             <Badge variant="outline">{user.role}</Badge>
-            <span className="text-xs text-muted-foreground hidden sm:inline">Shop sharing inventory • any staff can use any counter • tracked who billed</span>
+            <span className="text-xs text-muted-foreground hidden sm:inline">Shared inventory • staff bill on assigned counters • tracked who billed</span>
           </div>
 
           {error && <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">{error}</div>}
@@ -99,7 +153,7 @@ export default function SettingsPage() {
             <CardContent className="p-3 space-y-1 text-sm">
               <div><span className="text-muted-foreground">Shop:</span> <span className="font-semibold">{shop?.name ?? "—"}</span> <span className="font-mono text-xs text-muted-foreground">{shop?.id ?? user.shopId ?? "—"}</span></div>
               <div><span className="text-muted-foreground">You:</span> {user.name} ({user.email}) — {user.role}</div>
-              <div className="text-xs text-muted-foreground">Counters in this shop share inventory. Any staff login works on any counter; order records which counter & who billed.</div>
+              <div className="text-xs text-muted-foreground">Counters in this shop share inventory. Staff bill on their assigned counter; orders record which counter & who billed.</div>
               {(user.role === "SHOP_OWNER" || user.role === "SUPER_ADMIN") && (
                 <div className="pt-2">
                   <Link href="/users" className="text-xs text-primary hover:underline inline-flex items-center gap-1"><Users className="w-3 h-3" /> Manage users of this shop → Users</Link>
@@ -109,33 +163,121 @@ export default function SettingsPage() {
           </Card>
 
           <Card>
-            <CardHeader className="py-3 border-b flex-row items-center justify-between"><CardTitle className="text-sm flex items-center gap-2"><Monitor className="w-4 h-4" /> Counters ({counters.length})</CardTitle><Badge variant="outline">Shared inventory</Badge></CardHeader>
-            <CardContent className="p-3 space-y-3">
-              {/* Only SHOP_OWNER (and SUPER_ADMIN) can create counters — STAFF sees read-only list */}
-              {canManage && (
-                <div className="flex gap-2">
-                  <Input value={newCounter} onChange={(e) => setNewCounter(e.target.value)} placeholder="Counter name e.g., Counter 3" className="h-7 text-xs flex-1" />
-                  <Button size="sm" className="h-7" onClick={handleCreateCounter}><Plus className="w-3 h-3" /> Add Counter</Button>
-                </div>
-              )}
-              {!canManage && counters.length > 0 && <div className="text-xs text-muted-foreground">STAFF view — read-only. Only SHOP_OWNER can create counters.</div>}
-              <div className="flex flex-wrap gap-2">
-                {counters.map((c) => (
-                  <div key={c.id} className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
-                    <Monitor className="w-3.5 h-3.5 text-primary" /> {c.name}
-                    {canManage && (
-                      <Button variant="ghost" size="icon-xs" className="h-5 w-5 ml-1" onClick={() => handleDeleteCounter(c.id, c.name)}>
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-                {counters.length === 0 && <span className="text-xs text-muted-foreground">{canManage ? "No counters yet — create one." : "No counters yet."}</span>}
+            <CardHeader className="py-3 border-b flex-row items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2"><Monitor className="w-4 h-4" /> Counters ({counters.length})</CardTitle>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">Shared inventory</Badge>
+                {canManage && (
+                  <Button size="sm" className="h-7 gap-1" onClick={() => setAddOpen(true)}><Plus className="w-3.5 h-3.5" /> Add</Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {!canManage && counters.length > 0 && <div className="px-3 pt-3 text-xs text-muted-foreground">STAFF view — read-only. Only SHOP_OWNER can manage counters.</div>}
+              <div className="divide-y">
+                {counters.map((c) => {
+                  const n = staffOf(c.id).length;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setDetailId(c.id)}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+                      title="View counter details"
+                    >
+                      <span className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                        <Monitor className="w-4 h-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[14px] font-semibold truncate">{c.name}</span>
+                        <span className="block text-[11px] text-muted-foreground">
+                          {n === 0 ? "No staff assigned" : `${n} staff assigned`}
+                        </span>
+                      </span>
+                      {!c.isActive && <Badge variant="secondary" className="text-[10px] shrink-0">Inactive</Badge>}
+                      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                    </button>
+                  );
+                })}
+                {counters.length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">{canManage ? "No counters yet — add one." : "No counters yet."}</div>}
               </div>
             </CardContent>
           </Card>
 
-          {!canManage && <div className="text-[11px] text-muted-foreground px-1">You are logged in as STAFF. You can use any counter to bill — orders track who billed. User management is not available for this role.</div>}
+          {!canManage && <div className="text-[11px] text-muted-foreground px-1">You are logged in as STAFF. You bill on your assigned counter — orders track who billed. User management is not available for this role.</div>}
+
+          {/* Add counter modal — names are automatic (first missing number) */}
+          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+            <DialogContent className="sm:max-w-[380px] p-0 gap-0 overflow-hidden">
+              <DialogHeader className="p-5 pb-3">
+                <DialogTitle className="text-[15px] flex items-center gap-2"><Monitor className="w-4 h-4 text-primary" /> Add counter</DialogTitle>
+                <DialogDescription className="text-xs">
+                  Counter names are automatic. The new counter will be created as:
+                </DialogDescription>
+              </DialogHeader>
+              <div className="px-5 pb-2">
+                <div className="flex items-center gap-2.5 rounded-xl border bg-muted/30 px-4 py-3">
+                  <span className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0">
+                    <Monitor className="w-4 h-4" />
+                  </span>
+                  <span className="text-[15px] font-bold">{previewName}</span>
+                </div>
+              </div>
+              <DialogFooter className="p-4 gap-2 sm:justify-end">
+                <Button variant="outline" onClick={() => setAddOpen(false)} disabled={adding} className="h-9">Cancel</Button>
+                <Button onClick={handleAddCounter} disabled={adding} className="h-9 px-5">
+                  {adding ? "Creating..." : `Create ${previewName}`}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Counter detail modal — assigned staff + delete */}
+          <Dialog open={detail !== null} onOpenChange={(v) => !v && setDetailId(null)}>
+            <DialogContent className="sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+              <DialogHeader className="p-5 pb-3 border-b bg-muted/20">
+                <div className="flex items-center gap-3 pr-6">
+                  <span className="w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                    <Monitor className="w-5 h-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <DialogTitle className="text-[16px] truncate">{detail?.name ?? ""}</DialogTitle>
+                    <DialogDescription>
+                      {detailStaff.length === 0 ? "No staff assigned" : `${detailStaff.length} staff assigned`}
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
+              <div className="px-3 py-2 max-h-[300px] overflow-auto">
+                {detailStaff.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-muted-foreground">Nobody bills here yet. Assign staff from Users.</div>
+                ) : (
+                  detailStaff.map((s) => (
+                    <div key={s.id} className="flex items-center gap-2.5 px-2 py-2 rounded-lg">
+                      <span className="w-8 h-8 rounded-full bg-muted border text-[11px] font-bold flex items-center justify-center shrink-0 text-muted-foreground">
+                        {initials(s.name)}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[13px] font-semibold truncate">{s.name}</div>
+                        <div className="text-[11px] text-muted-foreground truncate">{s.email}</div>
+                      </div>
+                      {s.isActive
+                        ? <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-primary/20 shrink-0">Active</Badge>
+                        : <Badge variant="destructive" className="text-[10px] shrink-0">Disabled</Badge>}
+                    </div>
+                  ))
+                )}
+              </div>
+              {canManage && (
+                <DialogFooter className="p-4 gap-2 sm:justify-between border-t bg-muted/20">
+                  <Button variant="ghost" size="sm" onClick={handleDeleteCounter} disabled={deleting} className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10">
+                    <Trash2 className="w-3.5 h-3.5" /> {deleting ? "Deleting..." : "Delete counter"}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setDetailId(null)}>Close</Button>
+                </DialogFooter>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </>

@@ -6,21 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuthStore } from "@/store/authStore";
 import { loginApi, fetchMe, fetchCounters } from "@/lib/authApi";
-import { LogIn, Store, Monitor, User, ShieldCheck, AlertCircle } from "lucide-react";
+import { LogIn, Store, User, ShieldCheck, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
-  const setCounters = useAuthStore((s) => s.setCounters);
-  const setSelectedCounter = useAuthStore((s) => s.setSelectedCounter);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [counterId, setCounterId] = useState<string>("");
-  const [counters, setCountersState] = useState<{ id: string; name: string; shopId: string; isActive?: boolean }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
@@ -48,7 +43,9 @@ export default function LoginPage() {
     if (!email.trim() || !password) return setError("Email and password required");
     setLoading(true);
     try {
-      const res = await loginApi({ email: email.trim().toLowerCase(), password, counterId: counterId || undefined });
+      // Counter is resolved server-side: STAFF auto-attach to their assigned
+      // counter (or the emptiest one); owner picks after login via the header.
+      const res = await loginApi({ email: email.trim().toLowerCase(), password });
       // store auth
       const user = res.user as any;
       const shop = res.shop ?? (user.shop ?? null);
@@ -70,11 +67,13 @@ export default function LoginPage() {
       }
 
       setAuth(res.accessToken, user, shop, counterList as any);
-      if (counterId) setSelectedCounter(counterId);
-      else if (counterList.length) setSelectedCounter(counterList[0].id);
-      else if (res.counterId) setSelectedCounter(res.counterId);
 
-      setInfo("Login successful — redirecting...");
+      const assignedName = (res as any).counter?.name ?? user.counter?.name;
+      setInfo(
+        user.role === "STAFF" && assignedName
+          ? `Signed in — billing on ${assignedName}.`
+          : "Login successful — redirecting..."
+      );
       // SUPER_ADMIN never bills (owner & counter-staff only) — land on admin
       router.replace(user.role === "SUPER_ADMIN" ? "/admin" : "/");
     } catch (err) {
@@ -100,9 +99,11 @@ export default function LoginPage() {
             <ShieldCheck className="w-5 h-5 text-primary" /> GB Retail Login
           </CardTitle>
           <div className="text-xs text-muted-foreground">Multi-shop • Multi-counter • Email + Password</div>
-          <div className="text-[11px] text-muted-foreground/80">
-            Demo: <span className="font-mono">super@gbretail.local / super123</span> • <span className="font-mono">owner@shop.local / owner123</span> • <span className="font-mono">staff1@shop.local / staff123</span>
-          </div>
+          {process.env.NODE_ENV !== "production" && (
+            <div className="text-[11px] text-muted-foreground/80">
+              Demo: <span className="font-mono">super@gbretail.local / super123</span> • <span className="font-mono">owner@shop.local / owner123</span> • <span className="font-mono">staff1@shop.local / staff123</span>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleLogin} className="space-y-3">
@@ -131,26 +132,6 @@ export default function LoginPage() {
                 autoComplete="current-password"
               />
             </div>
-
-            {counters.length > 0 && (
-              <div className="space-y-1.5">
-                <Label className="text-xs flex items-center gap-1.5">
-                  <Monitor className="w-3.5 h-3.5" /> Counter (optional — pick after login also)
-                </Label>
-                <Select value={counterId} onValueChange={(v) => setCounterId(v ?? "")}>
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="Auto — first counter" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {counters.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
 
             {error && (
               <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">

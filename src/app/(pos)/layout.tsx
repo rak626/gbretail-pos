@@ -1,5 +1,5 @@
-import PosShell from "@/components/pos/PosShell";
+import PosShellSelector from "@/components/pos/PosShellSelector";
 
 export default function PosLayout({ children }: { children: React.ReactNode }) {
-  return <PosShell>{children}</PosShell>;
+  return <PosShellSelector>{children}</PosShellSelector>;
 }

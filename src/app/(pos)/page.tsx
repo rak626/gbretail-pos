@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useCallback, useState } from "react";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useCartStore, initializeOfflineDetection } from "@/store/cartStore";
+import { useCatalogStore, selectCatalogCategories } from "@/store/catalogStore";
+import { useAuthStore } from "@/store/authStore";
 import CustomerSection from "@/components/CustomerSection";
 import SearchBar from "@/components/SearchBar";
 import CartTable from "@/components/CartTable";
@@ -12,7 +14,6 @@ import LooseItemModal from "@/components/LooseItemModal";
 import CustomItemModal from "@/components/CustomItemModal";
 import PaymentModal from "@/components/PaymentModal";
 import AddCustomerDialog from "@/components/AddCustomerDialog";
-import { products as staticProducts } from "@/data/products";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Product } from "@/types";
@@ -25,29 +26,36 @@ export default function Home() {
   const openLooseModal = useCartStore((s) => s.openLooseModal);
   const productFreq = useCartStore((s) => s.productFreq);
   const recentIds = useCartStore((s) => s.recentIds);
+  const catalog = useCatalogStore((s) => s.products);
+  const catalogLoaded = useCatalogStore((s) => s.loaded);
+  const loadCatalog = useCatalogStore((s) => s.loadCatalog);
+  const actor = useAuthStore((s) => s.user);
+  const selectedCounterId = useAuthStore((s) => s.selectedCounterId);
   const [category, setCategory] = useState<string>("All");
+  // Login hard-blocks counter-less staff, but legacy sessions can predate the
+  // assignment — show guidance instead of a dead POS.
+  const counterBlocked =
+    actor?.role === "STAFF" && !selectedCounterId && !(actor as any)?.counterId;
 
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    for (const p of staticProducts) if ((p as any).category) set.add((p as any).category);
-    return ["All", ...Array.from(set).sort()];
-  }, []);
+  const categories = useMemo(() => selectCatalogCategories(catalog), [catalog]);
 
   // Memoized — avoids sorting on every cart change / rerender
   const mostFrequent = useMemo(() => {
     const filtered =
-      category === "All" ? [...staticProducts] : staticProducts.filter((p) => (p as any).category === category);
+      category === "All" ? [...catalog] : category === "Loose Items"
+        ? catalog.filter((p) => p.is_loose)
+        : catalog.filter((p) => (p as any).category === category);
     return filtered.sort((a, b) => {
       const fa = productFreq[a.id] || 0;
       const fb = productFreq[b.id] || 0;
       if (fa !== fb) return fb - fa;
       return 0;
     });
-  }, [productFreq, category]);
+  }, [productFreq, category, catalog]);
 
   const recentProducts = useMemo(() => {
-    return recentIds.map((id) => staticProducts.find((p) => p.id === id)).filter(Boolean) as typeof staticProducts;
-  }, [recentIds]);
+    return recentIds.map((id) => catalog.find((p) => p.id === id)).filter(Boolean) as typeof catalog;
+  }, [recentIds, catalog]);
 
   const handleProductClick = useCallback(
     (p: Product) => {
@@ -72,11 +80,13 @@ export default function Home() {
   );
 
   useEffect(() => {
+    loadCatalog();
     const cleanup = initializeOfflineDetection();
     // Warm up API — check health via backend, fallback silently if DB not configured
     const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
     fetch(`${base}/api/health`).catch(() => {});
     return cleanup;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useKeyboardShortcuts();
@@ -107,6 +117,15 @@ export default function Home() {
               ))}
             </div>
             <div className="flex-1 overflow-auto px-3 pb-3 min-h-0 flex flex-col gap-4">
+              {counterBlocked ? (
+                <div className="flex-1 flex items-center justify-center p-8">
+                  <div className="max-w-sm w-full rounded-2xl border bg-card p-6 text-center">
+                    <div className="font-semibold">No counter assigned</div>
+                    <div className="text-xs text-muted-foreground mt-1">Ask your shop owner to assign you a counter from Users, then sign in again.</div>
+                  </div>
+                </div>
+              ) : (
+              <>
               <div className="space-y-2">
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-0.5">
                   {category === "All" ? "Most frequent" : category}
@@ -115,6 +134,11 @@ export default function Home() {
                   {mostFrequent.slice(0, 12).map((p) => (
                     <PosProductCard key={`freq-${p.id}`} product={p as unknown as Product} onAdd={handleProductClick} />
                   ))}
+                  {mostFrequent.length === 0 && (
+                    <div className="col-span-full py-10 text-center text-sm text-muted-foreground">
+                      {catalogLoaded ? "No products in this category yet — add them from Inventory." : "Loading catalog…"}
+                    </div>
+                  )}
                 </div>
               </div>
               {recentProducts.length > 0 && (
@@ -132,6 +156,8 @@ export default function Home() {
                     ))}
                   </div>
                 </div>
+              )}
+              </>
               )}
             </div>
           </div>

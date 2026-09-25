@@ -270,17 +270,17 @@ export const useCartStore = create<CartState>()(
 );
 
 export function initializeOfflineDetection(): () => void {
-  const store = useCartStore.getState();
-  store.setOffline(!navigator.onLine);
-
-  const onOnline = () => store.setOffline(false);
-  const onOffline = () => store.setOffline(true);
-  window.addEventListener("online", onOnline);
-  window.addEventListener("offline", onOffline);
+  // Delegates to the shared heartbeat store (browser events alone can't see
+  // router/ISP outages). Keeps the cart's offline flag in sync with the header dot.
+  // Dynamic import avoids a module cycle (onlineStore mirrors into cartStore).
+  let stop: (() => void) | null = null;
+  import("@/store/onlineStore").then((m) => {
+    m.useOnlineStore.getState().start();
+    stop = () => m.useOnlineStore.getState().stop();
+  });
   // Return cleanup for useEffect
   return () => {
-    window.removeEventListener("online", onOnline);
-    window.removeEventListener("offline", onOffline);
+    if (stop) stop();
   };
 }
 

@@ -4,16 +4,17 @@ export async function loginApi(payload: { email: string; password: string; count
   const data = await apiClient.post<{
     accessToken: string;
     refreshToken: string;
-    user: { id: string; shopId: string | null; email: string; name: string; role: string; shop?: { id: string; name: string } | null };
+    user: { id: string; shopId: string | null; email: string; name: string; role: string; canManageInventory?: boolean; counterId?: string | null; counter?: { id: string; name: string } | null; shop?: { id: string; name: string } | null };
     shop?: { id: string; name: string } | null;
     counterId?: string | null;
+    counter?: { id: string; name: string } | null;
   }>("/api/auth/login", payload);
   return data;
 }
 
 export async function fetchMe() {
   return apiClient.get<{
-    user: { id: string; shopId: string | null; email: string; name: string; role: string; shop?: { id: string; name: string } | null };
+    user: { id: string; shopId: string | null; email: string; name: string; role: string; canManageInventory?: boolean; counterId?: string | null; counter?: { id: string; name: string } | null; shop?: { id: string; name: string } | null };
     shop: { id: string; name: string } | null;
     counters: { id: string; shopId: string; name: string; isActive: boolean }[];
     shops?: { id: string; name: string }[];

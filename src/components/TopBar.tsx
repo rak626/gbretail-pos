@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import { useSidebarStore } from "@/store/sidebarStore";
 import { useAuthStore } from "@/store/authStore";
@@ -9,36 +8,28 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ModeToggle } from "@/components/mode-toggle";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, Clock3, Wifi, WifiOff, Menu, PanelLeftClose, PanelLeftOpen, LogOut, Store, Monitor } from "lucide-react";
-import { logoutApi } from "@/lib/authApi";
+import { ShoppingCart, Clock3, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { useOnlineStore, OnlineDot } from "@/store/onlineStore";
+import UserMenu from "@/components/UserMenu";
+import CounterPicker from "@/components/CounterPicker";
 
 export default function TopBar() {
-  const router = useRouter();
   const [time, setTime] = useState("");
   const [barcodeInput, setBarcodeInput] = useState("");
   const [showBarcode, setShowBarcode] = useState(false);
   const { videoRef, lastResult, stopScanner, scanFromInput, clearResult } = useBarcodeScanner();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [online, setOnline] = useState(true);
+  const startOnline = useOnlineStore((s) => s.start);
+  const stopOnline = useOnlineStore((s) => s.stop);
   const { collapsed, toggleCollapsed, toggleMobile } = useSidebarStore();
-  const user = useAuthStore((s) => s.user);
   const shop = useAuthStore((s) => s.shop);
-  const counters = useAuthStore((s) => s.counters);
-  const selectedCounterId = useAuthStore((s) => s.selectedCounterId);
-  const setSelectedCounter = useAuthStore((s) => s.setSelectedCounter);
-  const clearAuth = useAuthStore((s) => s.clearAuth);
 
   useEffect(() => {
     setTime(new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }));
     const t = setInterval(() => setTime(new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })), 1000);
-    const on = () => setOnline(true);
-    const off = () => setOnline(false);
-    window.addEventListener("online", on);
-    window.addEventListener("offline", off);
-    setOnline(navigator.onLine);
-    return () => { clearInterval(t); window.removeEventListener("online", on); window.removeEventListener("offline", off); };
-  }, []);
+    startOnline();
+    return () => { clearInterval(t); stopOnline(); };
+  }, [startOnline, stopOnline]);
 
   useEffect(() => {
     const h = () => {
@@ -71,14 +62,14 @@ export default function TopBar() {
   }, [barcodeInput, scanFromInput]);
 
   return (
-    <header className="h-[64px] shrink-0 bg-primary text-primary-foreground flex items-center justify-between px-4 gap-4 shadow-md z-30">
+    <header className="h-14 shrink-0 bg-card border-b flex items-center justify-between px-3 gap-3 z-30">
       <div className="flex items-center gap-2 min-w-0">
         {/* Mobile hamburger */}
         <Button
           variant="ghost"
           size="icon-sm"
           onClick={toggleMobile}
-          className="md:hidden text-white hover:bg-white/10 hover:text-white shrink-0"
+          className="md:hidden text-muted-foreground hover:text-foreground shrink-0"
           aria-label="Open menu"
         >
           <Menu className="w-5 h-5" />
@@ -88,68 +79,28 @@ export default function TopBar() {
           variant="ghost"
           size="icon-sm"
           onClick={toggleCollapsed}
-          className="hidden md:flex text-white hover:bg-white/10 hover:text-white shrink-0"
+          className="hidden md:flex text-muted-foreground hover:text-foreground shrink-0"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Expand" : "Collapse"}
         >
           {collapsed ? <PanelLeftOpen className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
         </Button>
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center border border-white/15">
-            <ShoppingCart className="w-5 h-5 text-white" />
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
+            <ShoppingCart className="w-5 h-5 text-primary-foreground" />
           </div>
           <div className="leading-tight hidden sm:block">
             <div className="font-bold tracking-tight text-[15px] leading-none">GB RETAIL</div>
-            <div className="text-[10px] opacity-80 font-medium whitespace-nowrap tracking-wide">Fast Billing • Happy Customers</div>
+            {shop && <div className="text-[11px] text-muted-foreground font-medium truncate max-w-[160px]">{shop.name}</div>}
           </div>
           <div className="leading-tight sm:hidden">
             <div className="font-bold tracking-tight text-[14px] leading-none">GB RETAIL</div>
           </div>
         </div>
+        <CounterPicker className="hidden lg:flex" />
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        {user && shop && (
-          <div className="hidden lg:flex items-center gap-2 bg-black/15 rounded-full px-2 py-1 border border-white/10">
-            <Store className="w-3.5 h-3.5 text-white" />
-            <span className="text-xs font-semibold text-white max-w-[120px] truncate">{shop.name}</span>
-            {counters.length > 0 && (
-              <Select value={selectedCounterId ?? undefined} onValueChange={(v) => setSelectedCounter(v)}>
-                <SelectTrigger className="h-6 w-[130px] text-xs bg-white text-primary border-0">
-                  <SelectValue placeholder="Select counter" />
-                </SelectTrigger>
-                <SelectContent>
-                  {counters.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      <span className="flex items-center gap-1.5"><Monitor className="w-3 h-3" /> {c.name}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-        )}
-        {user && (
-          <div className="hidden md:flex items-center gap-1.5 bg-black/15 rounded-full px-2.5 py-1 border border-white/10">
-            <span className="text-xs font-medium text-white truncate max-w-[100px]">{user.name}</span>
-            <Badge variant="secondary" className="h-5 text-[10px] bg-white text-primary px-1.5">{user.role}</Badge>
-          </div>
-        )}
-        {user && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-white hover:bg-white/10 hover:text-white"
-            title="Logout"
-            onClick={async () => {
-              try { await logoutApi(); } catch {}
-              clearAuth();
-              router.replace("/login");
-            }}
-          >
-            <LogOut className="w-4 h-4" />
-          </Button>
-        )}
         {showBarcode && (
           <div className="flex items-center gap-2 bg-card rounded-xl p-1 border shadow-sm">
             <Input ref={inputRef} value={barcodeInput} onChange={e=>setBarcodeInput(e.target.value)} onKeyDown={e=> e.key==="Enter" && submit()} placeholder="Scan barcode..." className="h-8 w-40 bg-transparent border-0 focus-visible:ring-0 text-foreground" autoFocus />
@@ -158,15 +109,13 @@ export default function TopBar() {
             <video ref={videoRef} autoPlay playsInline className="fixed inset-0 w-full h-full object-cover z-[60] opacity-0 pointer-events-none" />
           </div>
         )}
-        <Badge variant="secondary" className="hidden lg:flex items-center gap-1.5 bg-black/15 text-white border-white/15 hover:bg-black/20 backdrop-blur">
+        <Badge variant="outline" className="hidden lg:flex items-center gap-1.5 rounded-full">
           <Clock3 className="w-3.5 h-3.5" />
-          <span className="text-xs font-medium opacity-95">{time || "—"}</span>
+          <span className="text-xs font-medium tabular-nums opacity-95">{time || "—"}</span>
         </Badge>
-        <Badge variant={online ? "secondary" : "destructive"} className={`hidden md:flex items-center gap-1.5 ${online ? "bg-white text-primary hover:bg-white" : "bg-amber-100 text-amber-800 hover:bg-amber-100"}`}>
-          {online ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-          {online ? "Online" : "Offline"}
-        </Badge>
-        <ModeToggle />
+        <OnlineDot />
+        <ModeToggle className="text-muted-foreground hover:text-foreground hover:bg-muted" />
+        <UserMenu />
       </div>
     </header>
   );

@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -17,12 +16,11 @@ import { isLowStock, isOutOfStock, lowStockThresholdOf } from "@/lib/stock";
 import { fetchProducts, createProduct, updateProduct, deleteProduct } from "@/lib/api";
 import { fetchMe } from "@/lib/authApi";
 import { useConfirm } from "@/components/confirm-dialog";
+import { selectCatalogCategories } from "@/store/catalogStore";
 import { useAuthStore } from "@/store/authStore";
 import type { Product } from "@/db/database";
 import SearchBox from "@/components/SearchBox";
 import { Search, Plus, Package, AlertTriangle, Boxes, Pencil, Trash2, Minus, TrendingUp, PackagePlus, Shield } from "lucide-react";
-
-const CATEGORIES = ["All", "Staples", "Loose Items", "Packaged", "Snacks", "Dairy", "Vegetables", "Spices"] as const;
 
 type ProductForm = {
   name: string;
@@ -192,8 +190,10 @@ export default function InventoryPage() {
     doSearchApi(trimmed);
   };
 
-  const filtered = useMemo(() => {
-    return products.filter((p) => {
+  // Filter chips + form suggestions come from live backend data, never hardcoded
+  const availableCategories = useMemo(() => selectCatalogCategories(products as any), [products]);
+
+  const filtered = useMemo(() => {    return products.filter((p) => {
       const q = search.trim().toLowerCase();
       // autosuggestion after 3 letters, ignore blank/beginning space
       const matchSearch = !q || q.length < 3 || q.startsWith(" ") ? true : p.name.toLowerCase().includes(q) || (p.barcode ?? "").toLowerCase().includes(q);
@@ -448,7 +448,7 @@ export default function InventoryPage() {
               </div>
               <ScrollArea>
                 <div className="flex gap-2 pb-1">
-                  {CATEGORIES.map((cat) => (
+                  {availableCategories.map((cat) => (
                     <Button
                       key={cat}
                       variant={category === cat ? "default" : "outline"}
@@ -583,43 +583,42 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      {/* Add / Edit Product Dialog */}
+      {/* Add / Edit Product modal */}
       <Dialog open={open} onOpenChange={(v) => !v && setOpen(false)}>
-        <DialogContent className="sm:max-w-[460px] p-0 gap-0 overflow-hidden">
-          <DialogHeader className="p-5 pb-3">
-            <DialogTitle className="text-[14px]">{editing ? "Edit Product" : "Add Product"}</DialogTitle>
-            <DialogDescription className="text-[11px]">
+        <DialogContent className="sm:max-w-[540px] p-0 gap-0 overflow-hidden max-h-[calc(100%-3rem)] flex flex-col">
+          <DialogHeader className="p-5 pb-3 shrink-0">
+            <DialogTitle className="text-[17px]">{editing ? "Edit Product" : "Add Product"}</DialogTitle>
+            <DialogDescription className="text-[13px]">
               {editing ? "Update product details and stock" : "Create a new product for inventory"}
             </DialogDescription>
           </DialogHeader>
-          <div className="px-5 pb-5 space-y-3">
-            <div className="space-y-1">
-              <Label className="text-[11px]">Product Name *</Label>
-              <Input value={form.name} onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))} placeholder="e.g., Tata Salt 1kg" className="h-8 text-xs" />
+          <div className="px-5 pb-5 space-y-4 overflow-auto">
+            <div className="space-y-1.5">
+              <Label className="text-[13px]">Product Name *</Label>
+              <Input value={form.name} onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))} placeholder="e.g., Tata Salt 1kg" className="h-10 text-sm" />
               {form.is_loose && (
-                <div className="text-[10px] text-muted-foreground">One item, multiple rates? Create one product per rate — e.g. “Sugar – Economy @ ₹40/kg” and “Sugar – Premium @ ₹50/kg”. Each keeps its own stock.</div>
+                <div className="text-xs text-muted-foreground">One item, multiple rates? Create one product per rate — e.g. “Sugar – Economy @ ₹40/kg” and “Sugar – Premium @ ₹50/kg”. Each keeps its own stock.</div>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="space-y-1">
-                <Label className="text-[11px]">Category *</Label>
-                <Select value={form.category} onValueChange={(v) => setForm((s) => ({ ...s, category: (v as string) ?? s.category }))}>
-                  <SelectTrigger className="h-8 w-full text-xs">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Staples">Staples</SelectItem>
-                    <SelectItem value="Packaged">Packaged</SelectItem>
-                    <SelectItem value="Snacks">Snacks</SelectItem>
-                    <SelectItem value="Dairy">Dairy</SelectItem>
-                    <SelectItem value="Vegetables">Vegetables</SelectItem>
-                    <SelectItem value="Spices">Spices</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[13px]">Category *</Label>
+                <Input
+                  value={form.category}
+                  onChange={(e) => setForm((s) => ({ ...s, category: e.target.value }))}
+                  placeholder="e.g., Staples"
+                  className="h-10 text-sm"
+                  list="inventory-categories"
+                />
+                <datalist id="inventory-categories">
+                  {availableCategories.filter((c) => c !== "All" && c !== "Loose Items").map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
               </div>
-              <div className="space-y-1">
-                <Label className="text-[11px]">Unit</Label>
-                <Input value={form.unit} onChange={(e) => setForm((s) => ({ ...s, unit: e.target.value }))} placeholder="pcs / kg" className="h-8 text-xs" />
+              <div className="space-y-1.5">
+                <Label className="text-[13px]">Unit</Label>
+                <Input value={form.unit} onChange={(e) => setForm((s) => ({ ...s, unit: e.target.value }))} placeholder="pcs / kg" className="h-10 text-sm" />
               </div>
             </div>
 
@@ -630,67 +629,67 @@ export default function InventoryPage() {
                   checked={form.is_loose}
                   onCheckedChange={(checked) => setForm((s) => ({ ...s, is_loose: checked === true }))}
                 />
-                <Label htmlFor="is_loose" className="text-[11px] font-medium cursor-pointer">
+                <Label htmlFor="is_loose" className="text-[13px] font-medium cursor-pointer">
                   Loose item (sold by weight)
                 </Label>
               </div>
-              <Badge variant="outline" className="text-[10px] h-5 px-1.5">{form.is_loose ? "Loose" : "Packaged"}</Badge>
+              <Badge variant="outline" className="text-[11px] h-5 px-1.5">{form.is_loose ? "Loose" : "Packaged"}</Badge>
             </div>
 
             {form.is_loose ? (
-              <div className="space-y-1">
-                <Label className="text-[11px]">Rate per kg (₹) *</Label>
-                <Input type="number" value={form.rate_per_kg} onChange={(e) => setForm((s) => ({ ...s, rate_per_kg: e.target.value }))} placeholder="e.g., 48" className="h-8 text-xs" />
+              <div className="space-y-1.5">
+                <Label className="text-[13px]">Rate per kg (₹) *</Label>
+                <Input type="number" value={form.rate_per_kg} onChange={(e) => setForm((s) => ({ ...s, rate_per_kg: e.target.value }))} placeholder="e.g., 48" className="h-10 text-sm" />
               </div>
             ) : (
-              <div className="space-y-1">
-                <Label className="text-[11px]">Selling Price (₹) *</Label>
-                <Input type="number" value={form.price} onChange={(e) => setForm((s) => ({ ...s, price: e.target.value }))} placeholder="e.g., 28" className="h-8 text-xs" />
+              <div className="space-y-1.5">
+                <Label className="text-[13px]">Selling Price (₹) *</Label>
+                <Input type="number" value={form.price} onChange={(e) => setForm((s) => ({ ...s, price: e.target.value }))} placeholder="e.g., 28" className="h-10 text-sm" />
               </div>
             )}
-            <div className="space-y-1">
-              <Label className="text-[11px]">Buying Price — Cost (₹) *</Label>
-              <Input type="number" value={form.costPrice} onChange={(e) => setForm((s) => ({ ...s, costPrice: e.target.value }))} placeholder="e.g., 22 (mandatory for profit)" className="h-8 text-xs" />
-              <div className="text-[10px] text-muted-foreground">Profit = Sell - Buy. Mandatory for analytics.</div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px]">Buying Price — Cost (₹) *</Label>
+              <Input type="number" value={form.costPrice} onChange={(e) => setForm((s) => ({ ...s, costPrice: e.target.value }))} placeholder="e.g., 22 (mandatory for profit)" className="h-10 text-sm" />
+              <div className="text-xs text-muted-foreground">Profit = Sell - Buy. Mandatory for analytics.</div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="space-y-1">
-                <Label className="text-[11px]">Barcode (optional)</Label>
-                <Input value={form.barcode} onChange={(e) => setForm((s) => ({ ...s, barcode: e.target.value }))} placeholder="8901..." className="h-8 font-mono text-[11px]" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[13px]">Barcode (optional)</Label>
+                <Input value={form.barcode} onChange={(e) => setForm((s) => ({ ...s, barcode: e.target.value }))} placeholder="8901..." className="h-10 font-mono text-[13px]" />
               </div>
-              <div className="space-y-1">
-                <Label className="text-[11px]">Stock Quantity *</Label>
-                <Input type="number" value={form.stockQuantity} onChange={(e) => setForm((s) => ({ ...s, stockQuantity: e.target.value }))} placeholder="100" className="h-8 text-xs" />
+              <div className="space-y-1.5">
+                <Label className="text-[13px]">Stock Quantity *</Label>
+                <Input type="number" value={form.stockQuantity} onChange={(e) => setForm((s) => ({ ...s, stockQuantity: e.target.value }))} placeholder="100" className="h-10 text-sm" />
               </div>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-[11px]">Low-stock warning at * <span className="text-muted-foreground font-normal">(in {form.unit.trim() || "pcs"} — warn only, never blocks sales)</span></Label>
-              <Input type="number" value={form.lowStockThreshold} onChange={(e) => setForm((s) => ({ ...s, lowStockThreshold: e.target.value }))} placeholder="10" className="h-8 text-xs" />
-              <div className="text-[10px] text-muted-foreground">E.g. 10 pcs, 2 bags, 5 kg — per product.</div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px]">Low-stock warning at * <span className="text-muted-foreground font-normal">(in {form.unit.trim() || "pcs"} — warn only, never blocks sales)</span></Label>
+              <Input type="number" value={form.lowStockThreshold} onChange={(e) => setForm((s) => ({ ...s, lowStockThreshold: e.target.value }))} placeholder="10" className="h-10 text-sm" />
+              <div className="text-xs text-muted-foreground">E.g. 10 pcs, 2 bags, 5 kg — per product.</div>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-[11px]">Description <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <div className="space-y-1.5">
+              <Label className="text-[13px]">Description <span className="text-muted-foreground font-normal">(optional)</span></Label>
               <Textarea
                 value={form.description}
                 onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
                 placeholder="Product notes, supplier info or storage instructions..."
-                className="min-h-[56px] text-xs resize-none"
+                className="min-h-[64px] text-sm resize-none"
                 rows={2}
               />
             </div>
 
             {formError && (
-              <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-2.5 py-1.5 text-xs font-medium text-destructive">
+              <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-2.5 py-1.5 text-[13px] font-medium text-destructive">
                 {formError}
               </div>
             )}
           </div>
-          <DialogFooter className="p-4 gap-3 sm:justify-end">
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving} className="h-9 px-6 min-w-[96px]">Cancel</Button>
-            <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90 text-white h-9 px-6 min-w-[130px]">
+          <DialogFooter className="p-4 gap-3 sm:justify-end border-t shrink-0">
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving} className="h-11 px-6 min-w-[110px] text-sm">Cancel</Button>
+            <Button onClick={handleSave} disabled={saving} className="h-11 px-6 min-w-[150px] text-sm">
               {saving ? (editing ? "Saving..." : "Adding...") : editing ? "Done Editing" : "Add Product"}
             </Button>
           </DialogFooter>

@@ -48,8 +48,6 @@ export const LEDGER = {
   DEFAULT_CREDIT_DAYS: 30,
 } as const;
 
-export const CATEGORIES = ["All", "Staples", "Spices", "Snacks", "Beverages", "Personal Care", "Household", "Loose Items"] as const;
-
 export const CURRENCY = {
   LOCALE: "en-IN",
   CURRENCY: "INR",
