@@ -19,7 +19,7 @@ import { useConfirm } from "@/components/confirm-dialog";
 import { useOfflineBlock } from "@/hooks/useOfflineBlock";
 
 type UserRow = { id: string; email: string; name: string; role: string; shopId: string | null; isActive: boolean; canManageInventory?: boolean; counterId?: string | null; shop?: { id: string; name: string } | null; createdAt?: string };
-type ShopOpt = { id: string; name: string };
+type ShopOpt = { id: string; code?: string | null; name: string };
 type CounterOpt = { id: string; name: string };
 
 const ROLE_META: Record<string, { label: string; dot: string }> = {
@@ -27,6 +27,12 @@ const ROLE_META: Record<string, { label: string; dot: string }> = {
   SHOP_OWNER: { label: "Owner", dot: "bg-amber-500" },
   SUPER_ADMIN: { label: "Super Admin", dot: "bg-rose-500" },
 };
+
+const ROLE_OPTIONS = [
+  { value: "STAFF", label: "Staff", hint: "Bills on a counter, no admin access" },
+  { value: "SHOP_OWNER", label: "Shop Owner", hint: "Manages one shop: staff, stock, counters" },
+  { value: "SUPER_ADMIN", label: "Super Admin", hint: "All shops, no shop assigned" },
+];
 
 function initials(name: string) {
   return name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
@@ -109,6 +115,8 @@ export default function UsersPage() {
   const handleCreate = async () => {
     if (await block()) return;
     if (!newUser.email || !newUser.password || !newUser.name) return setError("email / password / name required");
+    if (newUser.password.length < 6) return setError("Password must be at least 6 characters");
+    if (isSuper && newUser.role !== "SUPER_ADMIN" && !newUser.shopId) return setError("Select a shop for this user");
     if (creating) return;
     setCreating(true);
     setError("");
@@ -254,62 +262,87 @@ export default function UsersPage() {
               <DialogHeader className="p-5 pb-3 border-b bg-muted/20">
                 <DialogTitle className="text-[15px]">Create user</DialogTitle>
                 <DialogDescription className="text-xs">
-                  {isSuper ? "Choose a role and shop." : `New STAFF for ${user.shop?.name ?? "your shop"}.`}
+                  {isSuper ? "Choose a role and shop." : `New staff for ${user.shop?.name ?? "your shop"}.`}
                 </DialogDescription>
               </DialogHeader>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void handleCreate();
+                }}
+              >
               <div className="px-5 py-4 space-y-3">
                 <div className="grid sm:grid-cols-2 gap-2.5">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Name *</Label>
-                    <Input value={newUser.name} onChange={(e) => setNewUser((s) => ({ ...s, name: e.target.value }))} placeholder="Staff name" className="h-9 text-sm" autoFocus />
+                  <div className="space-y-1.5">
+                    <Label className="text-[13px]">Name *</Label>
+                    <Input value={newUser.name} onChange={(e) => setNewUser((s) => ({ ...s, name: e.target.value }))} placeholder="e.g., Ramesh Kumar" className="h-10 text-sm" autoFocus autoComplete="name" />
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Email *</Label>
-                    <Input value={newUser.email} onChange={(e) => setNewUser((s) => ({ ...s, email: e.target.value }))} placeholder="email" className="h-9 text-sm" />
+                  <div className="space-y-1.5">
+                    <Label className="text-[13px]">Email *</Label>
+                    <Input value={newUser.email} onChange={(e) => setNewUser((s) => ({ ...s, email: e.target.value }))} type="email" placeholder="name@shop.com" className="h-10 text-sm" autoComplete="email" />
                   </div>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-2.5">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Password *</Label>
-                    <Input value={newUser.password} onChange={(e) => setNewUser((s) => ({ ...s, password: e.target.value }))} type="password" placeholder="min 6 characters" className="h-9 text-sm" autoComplete="new-password" />
+                  <div className="space-y-1.5">
+                    <Label className="text-[13px]">Password *</Label>
+                    <Input value={newUser.password} onChange={(e) => setNewUser((s) => ({ ...s, password: e.target.value }))} type="password" placeholder="Min 6 characters" className="h-10 text-sm" autoComplete="new-password" />
                   </div>
                   {isSuper ? (
-                    <div className="space-y-1">
-                      <Label className="text-xs">Role</Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-[13px]">Role</Label>
                       <Select value={newUser.role} onValueChange={(v) => setNewUser((s) => ({ ...s, role: v ?? "STAFF" }))}>
-                        <SelectTrigger className="h-9 text-sm w-full">
-                          <SelectValue />
+                        <SelectTrigger className="h-10 text-sm w-full" aria-label="User role">
+                          <SelectValue>{ROLE_OPTIONS.find((o) => o.value === newUser.role)?.label ?? "Staff"}</SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="STAFF">STAFF</SelectItem>
-                          <SelectItem value="SHOP_OWNER">SHOP_OWNER</SelectItem>
-                          <SelectItem value="SUPER_ADMIN">SUPER_ADMIN</SelectItem>
+                          {ROLE_OPTIONS.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              <span className="flex flex-col items-start">
+                                <span>{o.label}</span>
+                                <span className="text-[11px] text-muted-foreground">{o.hint}</span>
+                              </span>
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
                   ) : (
-                    <div className="space-y-1">
-                      <Label className="text-xs">Role</Label>
-                      <Input value="STAFF" disabled className="h-9 text-sm" />
+                    <div className="space-y-1.5">
+                      <Label className="text-[13px]">Role</Label>
+                      <Input value="Staff" disabled className="h-10 text-sm" />
                     </div>
                   )}
                 </div>
                 {isSuper ? (
-                  <div className="space-y-1">
-                    <Label className="text-xs">Shop {(newUser.role === "SHOP_OWNER" || newUser.role === "STAFF") && "*"}</Label>
-                    <Select value={newUser.shopId} onValueChange={(v) => setNewUser((s) => ({ ...s, shopId: v ?? "" }))} disabled={newUser.role === "SUPER_ADMIN"}>
-                      <SelectTrigger className="h-9 text-sm w-full">
-                        <SelectValue placeholder={newUser.role === "SUPER_ADMIN" ? "No shop (super)" : "Select shop"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {shops.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  newUser.role !== "SUPER_ADMIN" && (
+                    <div className="space-y-1.5">
+                      <Label className="text-[13px]">Shop *</Label>
+                      <Select value={newUser.shopId} onValueChange={(v) => setNewUser((s) => ({ ...s, shopId: v ?? "" }))}>
+                        <SelectTrigger className="h-10 text-sm w-full" aria-label="Shop">
+                          <SelectValue>
+                            {(() => {
+                              const s = shops.find((x) => x.id === newUser.shopId);
+                              return s ? `${s.name}${s.code ? ` • ${s.code}` : ""}` : "Select shop";
+                            })()}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {shops.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              <span className="flex items-center gap-2">
+                                <span className="truncate">{s.name}</span>
+                                <span className="font-mono text-[11px] text-muted-foreground shrink-0">{s.code ?? "—"}</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )
                 ) : (
-                  <div className="space-y-1">
-                    <Label className="text-xs">Shop</Label>
-                    <Input value={user.shop?.name ?? user.shopId ?? "—"} disabled className="h-9 text-sm" />
+                  <div className="space-y-1.5">
+                    <Label className="text-[13px]">Shop</Label>
+                    <Input value={user.shop?.name ?? user.shopId ?? "—"} disabled className="h-10 text-sm" />
                   </div>
                 )}
                 {isOwner && (
@@ -337,9 +370,10 @@ export default function UsersPage() {
                 {error && <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">{error}</div>}
               </div>
               <DialogFooter className="p-4 gap-2 sm:justify-end border-t bg-muted/20">
-                <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating} className="h-9">Cancel</Button>
-                <Button onClick={handleCreate} disabled={creating || offline} title={offline ? reason : undefined} className="h-9 px-6">{creating ? "Creating..." : "Create"}</Button>
+                <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={creating} className="h-10 px-5">Cancel</Button>
+                <Button type="submit" disabled={creating || offline} title={offline ? reason : undefined} className="h-10 px-6 min-w-[130px]">{creating ? "Creating…" : "Create user"}</Button>
               </DialogFooter>
+              </form>
             </DialogContent>
           </Dialog>
 
