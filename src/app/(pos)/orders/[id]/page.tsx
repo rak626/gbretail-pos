@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { formatINR } from "@/lib/utils";
-import { generateReceiptHTML } from "@/lib/print";
+import { generateReceiptHTML, printReceiptHTML } from "@/lib/print";
 import { useReceiptShop } from "@/hooks/useReceiptShop";
 import { ArrowLeft, Calendar, User, Phone, CreditCard, ShoppingBag, Printer, Receipt } from "lucide-react";
 import type { Order } from "@/db/database";
@@ -59,8 +59,7 @@ export default function OrderDetailPage() {
       ? `${custLabel ? `${custLabel} ` : ""}(Split: Cash ${formatINR(t.cashAmount)} + UPI ${formatINR(t.upiAmount)})`
       : custLabel;
     const html = generateReceiptHTML(items as any, order.total, order.discount || 0, label, (order as unknown as { orderNumber?: string }).orderNumber || order.id, receiptShop);
-    const w = window.open("", "_blank");
-    if (w) { w.document.write(html); w.document.close(); w.print(); }
+    printReceiptHTML(html);
   };
 
   return (

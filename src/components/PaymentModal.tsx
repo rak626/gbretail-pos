@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useCartStore } from "@/store/cartStore";
 import { formatINR, formatUPIPaymentUrl } from "@/lib/utils";
-import { generateReceiptHTML } from "@/lib/print";
+import { generateReceiptHTML, printReceiptHTML } from "@/lib/print";
 import { createOrder } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { useOnlineStore } from "@/store/onlineStore";
@@ -102,11 +102,10 @@ export default function PaymentModal() {
   ) => {
     // Never print a fake server number: unconfirmed prints are watermarked, not numbered.
     const html = generateReceiptHTML(orderItems as any, total, disc, custName, orderNumber ?? `DRAFT — NOT SAVED`, receiptShop);
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.print();
+    const ok = printReceiptHTML(html);
+    if (!ok) {
+      // Popup blocked and iframe failed — surface via console + alert fallback (kiosk safe).
+      console.warn("[print] popup blocked — allow popups or use browser print");
     }
   };
 

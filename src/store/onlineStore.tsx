@@ -29,13 +29,14 @@ function mirrorToCart(online: boolean) {
 }
 
 async function ping(): Promise<boolean> {
-  // OS thinks we're online — verify real internet against our own backend.
-  // Any HTTP response (even 5xx) means the network path works.
+  // OS thinks we're online — verify real reachability against our own backend.
+  // Any HTTP response (even 401/5xx) means the network path works; only network
+  // errors count as offline. credentials:include so expired auth cookies don't flap.
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
     try {
-      await fetch(`${API_BASE}/api/health`, { method: "GET", cache: "no-store", signal: ctrl.signal });
+      await fetch(`${API_BASE}/api/health`, { method: "GET", cache: "no-store", credentials: "include", signal: ctrl.signal });
       return true;
     } finally {
       clearTimeout(t);

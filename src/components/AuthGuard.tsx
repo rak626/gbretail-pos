@@ -67,7 +67,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       } catch (e) {
         if (!cancelled) {
           const code = (e as { code?: string })?.code;
-          const reason = code === "ACCOUNT_DISABLED" || code === "SHOP_DISABLED" || code === "SESSION_REVOKED"
+          const reason = code === "ACCOUNT_DISABLED" || code === "SHOP_DISABLED" || code === "SESSION_REVOKED" || code === "REUSE_DETECTED" || code === "TOKEN_EXPIRED"
             ? `?reason=${encodeURIComponent(code)}`
             : "";
           useAuthStore.getState().clearAuth();

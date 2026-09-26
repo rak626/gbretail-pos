@@ -10,7 +10,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { formatINR } from "@/lib/utils";
-import { generateReceiptHTML } from "@/lib/print";
+import { generateReceiptHTML, printReceiptHTML } from "@/lib/print";
 import { useReceiptShop } from "@/hooks/useReceiptShop";
 import { fetchOrders } from "@/lib/api";
 import type { Order } from "@/db/database";
@@ -570,9 +570,8 @@ export default function OrdersPage() {
                 ? `${custLabel ? `${custLabel} ` : ""}(Split: Cash ${formatINR(o.cashAmount)} + UPI ${formatINR(o.upiAmount)})`
                 : custLabel;
               const html = generateReceiptHTML(items as any, o.total, o.discount || 0, label, full, receiptShop);
-              const w = window.open("", "_blank");
-              if (w) { w.document.write(html); w.document.close(); w.print(); }
-            };
+              printReceiptHTML(html);
+                      };
             const handleCopy = async () => {
               try {
                 await navigator.clipboard.writeText(full);

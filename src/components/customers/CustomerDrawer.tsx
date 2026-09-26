@@ -13,7 +13,7 @@ import { fetchCustomer, softDeleteCustomer, restoreCustomer, fetchOrders, fetchL
 import { useConfirm } from "@/components/confirm-dialog";
 import { useOfflineBlock } from "@/hooks/useOfflineBlock";
 import { formatINR } from "@/lib/utils";
-import { generateReceiptHTML } from "@/lib/print";
+import { generateReceiptHTML, printReceiptHTML } from "@/lib/print";
 import { useReceiptShop } from "@/hooks/useReceiptShop";
 import type { Customer } from "@/db/database";
 import CustomerFormDialog from "./CustomerFormDialog";
@@ -290,7 +290,7 @@ export default function CustomerDrawer({ open, onOpenChange, customerId, onDelet
                   <CardContent className="p-3 space-y-2 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold flex items-center gap-1"><User className="w-3.5 h-3.5 text-muted-foreground" /> Contact</span>
-                      {customer.balance > 0 ? <Badge variant="destructive" className="text-[11px]">Due ₹{customer.balance.toFixed(0)}</Badge> : <Badge variant="outline" className="text-[11px]">No dues</Badge>}
+                      {customer.balance > 0 ? <Badge variant="destructive" className="text-[11px]">Due ₹{customer.balance.toFixed(0)}</Badge> : customer.balance < 0 ? <Badge variant="secondary" className="text-[11px]">Advance ₹{Math.abs(customer.balance).toFixed(0)}</Badge> : <Badge variant="outline" className="text-[11px]">No dues</Badge>}
                     </div>
                     <Separator />
                     <div className="grid grid-cols-1 gap-1.5 text-[13px]">
@@ -445,8 +445,7 @@ export default function CustomerDrawer({ open, onOpenChange, customerId, onDelet
                                     lineTotal: it.lineTotal,
                                   }));
                                   const html = generateReceiptHTML(items as any, o.total, o.discount || 0, customer.name, o.orderNumber || o.id, receiptShop);
-                                  const w = window.open("", "_blank");
-                                  if (w) { w.document.write(html); w.document.close(); w.print(); }
+                                  printReceiptHTML(html);
                                 };
                                 return (
                                   <TableRow key={o.id} className="hover:bg-muted/40 h-[48px]">

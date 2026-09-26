@@ -1,7 +1,7 @@
 // Central app constants — single source for magic numbers / business rules
 
 export const SEARCH = {
-  MIN_LENGTH: 3,
+  MIN_LENGTH: 2,
   DEFAULT_LIMIT: 10,
   PAGE_LIMIT: 50,
   INVENTORY_LIMIT: 200,

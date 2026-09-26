@@ -27,6 +27,8 @@ export default function LoginPage() {
     ACCOUNT_DISABLED: "This account was disabled — contact your owner.",
     SHOP_DISABLED: "This shop was disabled — contact the administrator.",
     SESSION_REVOKED: "Signed out (password changed or sessions revoked) — login again.",
+    REUSE_DETECTED: "Suspicious session reuse detected — all sessions revoked, login again.",
+    TOKEN_EXPIRED: "Session expired — login again.",
   };
 
   const takeNext = (): string | null => {
@@ -127,7 +129,7 @@ export default function LoginPage() {
             <ShieldCheck className="w-5 h-5 text-primary" /> GB Retail Login
           </CardTitle>
           <div className="text-xs text-muted-foreground">Multi-shop • Multi-counter • Email + Password</div>
-          {process.env.NODE_ENV !== "production" && (
+          {process.env.NEXT_PUBLIC_SHOW_DEMO_CREDS === "1" && (
             <div className="text-[11px] text-muted-foreground/80">
               Demo: <span className="font-mono">super@gbretail.local / super123</span> • <span className="font-mono">owner@shop.local / owner123</span> • <span className="font-mono">staff1@shop.local / staff123</span>
             </div>

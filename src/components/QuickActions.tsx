@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useCartStore } from "@/store/cartStore";
 import { useReceiptShop } from "@/hooks/useReceiptShop";
-import { generateReceiptHTML } from "@/lib/print";
+import { generateReceiptHTML, printReceiptHTML } from "@/lib/print";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,12 +51,7 @@ export default function QuickActions() {
       `DRAFT — NOT SAVED`,
       receiptShop,
     );
-    const w = window.open("", "_blank");
-    if (w) {
-      w.document.write(html);
-      w.document.close();
-      w.print();
-    }
+    printReceiptHTML(html);
   };
 
   return (

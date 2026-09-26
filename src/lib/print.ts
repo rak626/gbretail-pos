@@ -14,7 +14,12 @@ export type ReceiptShop = {
 };
 
 function esc(s: unknown): string {
-  return String(s ?? "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 export function getOrderPdfFilename(orderId: string, date = new Date()): string {
@@ -46,13 +51,52 @@ function getQtyText(p: ReceiptItem): string {
   return "1";
 }
 
-// Centralized print — single implementation for window.open → document.write → print
-export function printReceiptHTML(html: string): void {
+// Centralized print — same-window iframe first (popup-blocker safe), window.open fallback.
+// Returns true when the print dialog was opened, false when blocked.
+export function printReceiptHTML(html: string): boolean {
+  try {
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.setAttribute("aria-hidden", "true");
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+      const win = iframe.contentWindow;
+      if (win) {
+        win.focus();
+        // Let the iframe render before printing
+        setTimeout(() => {
+          try {
+            win.print();
+          } finally {
+            setTimeout(() => iframe.remove(), 1000);
+          }
+        }, 250);
+        return true;
+      }
+      iframe.remove();
+    }
+  } catch {
+    // fall through to window.open fallback
+  }
   const w = window.open("", "_blank");
-  if (!w) return;
+  if (!w) {
+    // Popup blocked and iframe failed — caller should toast guidance.
+    return false;
+  }
   w.document.write(html);
   w.document.close();
+  w.focus();
   w.print();
+  return true;
 }
 
 export function generateReceiptHTML(
@@ -90,10 +134,10 @@ export function generateReceiptHTML(
       } else {
         rate = "-";
       }
-      // escape html
-      const safeName = String(item.name).replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      const safeQty = String(qty).replace(/</g, "&lt;");
-      const safeRate = String(rate).replace(/</g, "&lt;");
+      // escape html (full entity set — product names may contain & " ')
+      const safeName = esc(item.name);
+      const safeQty = esc(qty);
+      const safeRate = esc(rate);
       return `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:2px 0;font-size:10px;border-bottom:1px dotted #ddd;">
       <span style="width:8%;text-align:left;">${i + 1}</span>
