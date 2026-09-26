@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,9 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { useAuthStore } from "@/store/authStore";
 import { apiClient } from "@/lib/apiClient";
 import { fetchCounters } from "@/lib/authApi";
-import { Users, Shield, Plus, RefreshCw, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+import SearchBox from "@/components/SearchBox";
+import { Users, Shield, Plus, RefreshCw, ChevronRight, Search, ArrowDownWideNarrow } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import CounterSelect from "@/components/CounterSelect";
@@ -50,6 +52,12 @@ export default function UsersPage() {
   const [creating, setCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Toolbar: reusable search + role/status/shop filters (client-side — full list is in memory)
+  const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "disabled">("all");
+  const [shopFilter, setShopFilter] = useState<string>("all");
+  const searchRef = useRef<HTMLInputElement>(null);
   const { confirm, notify } = useConfirm();
   const { offline, block, reason } = useOfflineBlock(notify);
 
@@ -87,6 +95,18 @@ export default function UsersPage() {
     if (user && !isStaff) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role, user?.shopId]);
+
+  // "/" focuses user search (same as inventory)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "/" && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   if (!user) {
     return (
@@ -242,6 +262,41 @@ export default function UsersPage() {
     return "—";
   };
 
+  const ROLE_FILTERS = useMemo(() => {
+    const opts = [
+      { value: "all", label: "All roles" },
+      { value: "SHOP_OWNER", label: "Owners" },
+      { value: "STAFF", label: "Staff" },
+    ];
+    if (isSuper) opts.push({ value: "SUPER_ADMIN", label: "Super Admins" });
+    return opts;
+  }, [isSuper]);
+
+  const isFiltered = query.trim() !== "" || roleFilter !== "all" || statusFilter !== "all" || shopFilter !== "all";
+
+  const clearFilters = () => {
+    setQuery("");
+    setRoleFilter("all");
+    setStatusFilter("all");
+    setShopFilter("all");
+  };
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return users.filter((u) => {
+      if (roleFilter !== "all" && u.role !== roleFilter) return false;
+      if (statusFilter === "active" && !u.isActive) return false;
+      if (statusFilter === "disabled" && u.isActive) return false;
+      if (shopFilter !== "all" && u.shopId !== shopFilter) return false;
+      if (q) {
+        const hay = `${u.name} ${u.email} ${shopNameOf(u)} ${ROLE_META[u.role]?.label ?? u.role} ${counterNameOf(u) ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [users, query, roleFilter, statusFilter, shopFilter, shops, shopCounters]);
+
   return (
     <>
       <div className="flex-1 overflow-auto p-3">
@@ -256,6 +311,87 @@ export default function UsersPage() {
           </div>
 
           {error && !createOpen && <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">{error}</div>}
+
+          <Card className="py-0 border-primary/20 ring-1 ring-primary/5">
+            <CardContent className="p-2 space-y-2">
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+                <div className="flex items-center gap-2 h-10 px-2 rounded-md border border-input bg-background focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 flex-1 min-w-0">
+                  <SearchBox
+                    placeholder="Search name, email, shop or counter…"
+                    leftIcon={<Search className="w-4 h-4" />}
+                    value={query}
+                    onValueChange={setQuery}
+                    onSearch={setQuery}
+                    onClear={() => setQuery("")}
+                    inputRef={searchRef}
+                    variant="plain"
+                    minChars={2}
+                  />
+                </div>
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                  <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v ?? "all")}>
+                    <SelectTrigger className="h-10 min-w-[140px] text-sm" aria-label="Filter by role">
+                      <ArrowDownWideNarrow className="w-4 h-4 text-muted-foreground" />
+                      <SelectValue>{ROLE_FILTERS.find((o) => o.value === roleFilter)?.label ?? "All roles"}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ROLE_FILTERS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {isSuper && (
+                    <Select value={shopFilter} onValueChange={(v) => setShopFilter(v ?? "all")}>
+                      <SelectTrigger className="h-10 min-w-[170px] text-sm" aria-label="Filter by shop">
+                        <SelectValue>
+                          {shopFilter === "all" ? "All shops" : (() => {
+                            const s = shops.find((x) => x.id === shopFilter);
+                            return s ? `${s.name}${s.code ? ` • ${s.code}` : ""}` : "All shops";
+                          })()}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All shops</SelectItem>
+                        {shops.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            <span className="flex items-center gap-2">
+                              <span className="truncate">{s.name}</span>
+                              <span className="font-mono text-[11px] text-muted-foreground shrink-0">{s.code ?? "—"}</span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex gap-1.5" role="group" aria-label="Status">
+                  {([
+                    { value: "all", label: "All" },
+                    { value: "active", label: "Active" },
+                    { value: "disabled", label: "Disabled" },
+                  ] as const).map((f) => (
+                    <Button
+                      key={f.value}
+                      variant={statusFilter === f.value ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setStatusFilter(f.value)}
+                      className={cn("h-7 text-xs", statusFilter === f.value && f.value === "disabled" && "bg-destructive hover:bg-destructive/90")}
+                    >
+                      {f.label}
+                    </Button>
+                  ))}
+                </div>
+                <span className="text-[11px] text-muted-foreground ml-auto tabular-nums">
+                  {isFiltered ? `${filtered.length} of ${users.length} shown` : `${users.length} shown`} • press <kbd className="px-1 rounded border bg-muted">/</kbd> to search
+                </span>
+                {isFiltered && (
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs">Clear</Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogContent className="sm:max-w-[620px] p-0 gap-0 overflow-hidden">
@@ -381,9 +517,12 @@ export default function UsersPage() {
             <CardHeader className="py-2.5 px-4 border-b flex flex-row items-center justify-between">
               <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
                 <Users className="w-4 h-4 text-primary" /> {isSuper ? "All Users" : "Shop Users"} {loading && <span className="text-xs font-normal text-muted-foreground">loading…</span>}
+                {isFiltered && !loading && <Badge className="font-normal">filtered</Badge>}
               </CardTitle>
               {!loading && users.length > 0 && (
-                <span className="text-[11px] text-muted-foreground tabular-nums">{users.length} user{users.length === 1 ? "" : "s"}</span>
+                <span className="text-[11px] text-muted-foreground tabular-nums">
+                  {isFiltered ? `${filtered.length} of ${users.length}` : `${users.length} user${users.length === 1 ? "" : "s"}`}
+                </span>
               )}
             </CardHeader>
             <CardContent className="p-0">
@@ -416,8 +555,19 @@ export default function UsersPage() {
                           </div>
                         </TableCell>
                       </TableRow>
+                    ) : filtered.length === 0 ? (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={7}>
+                          <div className="p-12 text-center">
+                            <Search className="w-8 h-8 mx-auto text-muted-foreground/50" />
+                            <div className="text-sm font-medium mt-3">No users match these filters</div>
+                            <div className="text-xs text-muted-foreground mt-1">Try a shorter search or clear the filters</div>
+                            <Button variant="outline" size="sm" onClick={clearFilters} className="mt-4">Clear filters</Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     ) : (
-                      users.map((u) => {
+                      filtered.map((u) => {
                         const role = ROLE_META[u.role] ?? { label: u.role, dot: "bg-muted-foreground" };
                         const isSelf = u.id === user.id;
                         return (

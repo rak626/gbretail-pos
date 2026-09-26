@@ -53,14 +53,13 @@ export default function Sidebar() {
       if (ledger) items.push(ledger);
       return items;
     }
-    // SUPER_ADMIN is platform-level with no shop context: no billing, orders
-    // or inventory. Has Customers, Analytics, Ledger, Settings + Admin/Users.
+    // SUPER_ADMIN is platform-level with no shop context: no billing, orders,
+    // inventory or shop settings. Has Customers, Analytics, Ledger + Admin/Users.
     if (user?.role === "SUPER_ADMIN") {
       return [
         { href: "/customers", label: "Customers", icon: Users },
         { href: "/analytics", label: "Analytics", icon: BarChart3 },
         { href: "/ledger", label: "Ledger", icon: BookOpen },
-        { href: "/settings", label: "Settings", icon: Settings },
         { href: "/admin", label: "Admin", icon: Shield },
         { href: "/users", label: "Users", icon: Users },
       ];

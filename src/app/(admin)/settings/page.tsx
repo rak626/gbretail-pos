@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -183,6 +184,9 @@ export default function SettingsPage() {
   };
 
   if (!user) return <><div className="p-8 text-center text-sm">Loading...</div></>;
+
+  // SUPER_ADMIN has no shop context — shop settings live in Admin–Shops.
+  if (user.role === "SUPER_ADMIN") redirect("/admin");
 
   if (!user.shopId) {
     return (
