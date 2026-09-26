@@ -2,17 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardAction } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useAuthStore, refreshShopCounters } from "@/store/authStore";
 import { apiClient } from "@/lib/apiClient";
 import { useConfirm } from "@/components/confirm-dialog";
 import { useOfflineBlock } from "@/hooks/useOfflineBlock";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Settings, Monitor, Plus, Trash2, Store, Users, ChevronRight, Receipt } from "lucide-react";
+import ReceiptDrawer, { type ReceiptDraft } from "@/components/settings/ReceiptDrawer";
+import { Settings, Monitor, Plus, Trash2, Store, Users, ChevronRight, Receipt, Pencil } from "lucide-react";
 
 type ShopUser = { id: string; name: string; email: string; role: string; isActive: boolean; counterId?: string | null };
 
@@ -49,9 +48,11 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false);
   // Receipt identity form (per-shop bill header). Hydrated from the shop record
   // (login/me only carry id+name-era snapshots for old sessions).
-  const [receipt, setReceipt] = useState({ receiptName: "", gstin: "", upiId: "", phone: "", receiptFooter: "" });
+  // Edited in a modal; the card below shows a compact summary row.
+  const [receipt, setReceipt] = useState<ReceiptDraft>({ receiptName: "", gstin: "", upiId: "", phone: "", receiptFooter: "" });
+  const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptSaving, setReceiptSaving] = useState(false);
-  const [receiptMsg, setReceiptMsg] = useState("");
+  const [receiptError, setReceiptError] = useState("");
 
   const load = async () => {
     if (!user?.shopId) return;
@@ -108,7 +109,7 @@ export default function SettingsPage() {
     if (!user?.shopId) return;
     if (await block()) return;
     setReceiptSaving(true);
-    setReceiptMsg("");
+    setReceiptError("");
     try {
       const trim = (v: string) => (v.trim() === "" ? null : v.trim());
       const data = await apiClient.patch<{ shop: Record<string, unknown> }>(`/api/shops/${user.shopId}`, {
@@ -119,9 +120,10 @@ export default function SettingsPage() {
         receiptFooter: trim(receipt.receiptFooter),
       });
       useAuthStore.setState({ shop: data.shop as never });
-      setReceiptMsg("Receipt settings saved — new bills print with this header.");
+      setReceiptOpen(false);
+      await notify({ title: "Receipt settings saved", description: "New bills print with this header." });
     } catch (e) {
-      setReceiptMsg(e instanceof Error ? e.message : "Failed to save receipt settings");
+      setReceiptError(e instanceof Error ? e.message : "Failed to save receipt settings");
     } finally {
       setReceiptSaving(false);
     }
@@ -227,49 +229,44 @@ export default function SettingsPage() {
           </Card>
 
           <Card>
-            <CardHeader className="py-3 border-b"><CardTitle className="text-sm flex items-center gap-2"><Receipt className="w-4 h-4" /> Receipt — bill header</CardTitle></CardHeader>
-            <CardContent className="p-3 space-y-2.5">
-              <div className="grid sm:grid-cols-2 gap-2.5">
-                <div className="space-y-1">
-                  <Label className="text-xs">Receipt name</Label>
-                  <Input value={receipt.receiptName} onChange={(e) => setReceipt({ ...receipt, receiptName: e.target.value })} placeholder={shop?.name ?? "Shop name on bills"} disabled={!canManage || receiptSaving} className="h-9 text-sm" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">GSTIN</Label>
-                  <Input value={receipt.gstin} onChange={(e) => setReceipt({ ...receipt, gstin: e.target.value.toUpperCase() })} placeholder="15-char GSTIN" disabled={!canManage || receiptSaving} className="h-9 text-sm font-mono" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">UPI id (QR payments)</Label>
-                  <Input value={receipt.upiId} onChange={(e) => setReceipt({ ...receipt, upiId: e.target.value })} placeholder="name@bank" disabled={!canManage || receiptSaving} className="h-9 text-sm font-mono" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Phone</Label>
-                  <Input value={receipt.phone} onChange={(e) => setReceipt({ ...receipt, phone: e.target.value })} placeholder="10-digit phone" disabled={!canManage || receiptSaving} className="h-9 text-sm font-mono" />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Footer line</Label>
-                <Input value={receipt.receiptFooter} onChange={(e) => setReceipt({ ...receipt, receiptFooter: e.target.value })} placeholder="Thank you, visit again" disabled={!canManage || receiptSaving} className="h-9 text-sm" />
-              </div>
-              {receiptMsg && <div className="text-xs text-muted-foreground">{receiptMsg}</div>}
+            <CardHeader className="py-3 border-b">
+              <CardTitle className="text-sm flex items-center gap-2"><Receipt className="w-4 h-4" /> Receipt — bill header</CardTitle>
               {canManage && (
-                <Button size="sm" onClick={handleSaveReceipt} disabled={receiptSaving || offline} title={offline ? reason : undefined} className="h-8">
-                  {receiptSaving ? "Saving..." : "Save receipt settings"}
-                </Button>
+                <CardAction>
+                  <Button variant="outline" size="sm" onClick={() => { setReceiptError(""); setReceiptOpen(true); }} disabled={offline} title={offline ? reason : "Edit receipt header"} className="h-8 gap-1.5">
+                    <Pencil className="w-3.5 h-3.5" /> Edit
+                  </Button>
+                </CardAction>
               )}
-              {!canManage && <div className="text-[11px] text-muted-foreground">STAFF view — read-only. Only SHOP_OWNER can change receipt settings.</div>}
+            </CardHeader>
+            <CardContent className="p-3">
+              <dl className="grid grid-cols-[64px_1fr] gap-x-3 gap-y-1.5 text-sm">
+                <dt className="text-xs text-muted-foreground self-center">Name</dt>
+                <dd className="font-medium truncate" title={receipt.receiptName || shop?.name || "—"}>{receipt.receiptName || shop?.name || "—"}</dd>
+                <dt className="text-xs text-muted-foreground self-center">GSTIN</dt>
+                <dd className="font-mono text-[13px] truncate" title={receipt.gstin || "—"}>{receipt.gstin || <span className="text-muted-foreground">—</span>}</dd>
+                <dt className="text-xs text-muted-foreground self-center">UPI id</dt>
+                <dd className="font-mono text-[13px] truncate" title={receipt.upiId || "—"}>{receipt.upiId || <span className="text-muted-foreground">—</span>}</dd>
+                <dt className="text-xs text-muted-foreground self-center">Phone</dt>
+                <dd className="font-mono text-[13px] truncate" title={receipt.phone || "—"}>{receipt.phone || <span className="text-muted-foreground">—</span>}</dd>
+                <dt className="text-xs text-muted-foreground self-center">Footer</dt>
+                <dd className="text-[13px] truncate" title={receipt.receiptFooter || "—"}>{receipt.receiptFooter || <span className="text-muted-foreground">—</span>}</dd>
+              </dl>
+              {!canManage && <div className="text-[11px] text-muted-foreground mt-2">STAFF view — read-only. Only SHOP_OWNER can change receipt settings.</div>}
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="py-3 border-b flex-row items-center justify-between">
+            <CardHeader className="py-3 border-b">
               <CardTitle className="text-sm flex items-center gap-2"><Monitor className="w-4 h-4" /> Counters ({counters.length})</CardTitle>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">Shared inventory</Badge>
-                {canManage && (
-                  <Button size="sm" className="h-7 gap-1" onClick={() => setAddOpen(true)} disabled={offline} title={offline ? reason : undefined}><Plus className="w-3.5 h-3.5" /> Add</Button>
-                )}
-              </div>
+              <CardAction>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">Shared inventory</Badge>
+                  {canManage && (
+                    <Button size="sm" className="h-7 gap-1" onClick={() => setAddOpen(true)} disabled={offline} title={offline ? reason : undefined}><Plus className="w-3.5 h-3.5" /> Add</Button>
+                  )}
+                </div>
+              </CardAction>
             </CardHeader>
             <CardContent className="p-0">
               {!canManage && counters.length > 0 && <div className="px-3 pt-3 text-xs text-muted-foreground">STAFF view — read-only. Only SHOP_OWNER can manage counters.</div>}
@@ -377,6 +374,20 @@ export default function SettingsPage() {
               )}
             </DialogContent>
           </Dialog>
+
+          {/* Receipt editor drawer — bill header fields */}
+          <ReceiptDrawer
+            open={receiptOpen}
+            onOpenChange={setReceiptOpen}
+            draft={receipt}
+            setDraft={setReceipt}
+            error={receiptError}
+            saving={receiptSaving}
+            offline={offline}
+            offlineReason={reason}
+            shopName={shop?.name ?? undefined}
+            onSave={() => void handleSaveReceipt()}
+          />
         </div>
       </div>
     </>
