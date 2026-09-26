@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useCartStore } from "@/store/cartStore";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Kbd } from "@/components/ui/kbd";
 import { User, Phone, Trash2, Users, Eye, ScanBarcode } from "lucide-react";
 import CustomerDrawer from "@/components/customers/CustomerDrawer";
 
@@ -74,10 +75,12 @@ export default function CustomerSection({ compact, hideScan }: { compact?: boole
           <Button
             variant="outline"
             size="sm"
-            className={compact ? "h-7 rounded-full px-3 text-xs font-medium border shadow-none" : "h-8 rounded-full px-4 text-sm font-medium border shadow-none"}
+            className={compact ? "h-7 rounded-full px-3 text-xs font-medium border shadow-none gap-1.5" : "h-8 rounded-full px-4 text-sm font-medium border shadow-none gap-1.5"}
             onClick={openAddCustomerModal}
+            title="Select customer (F3)"
           >
             {isWalking ? "Select customer" : "Change"}
+            <Kbd className="hidden xl:inline-flex">F3</Kbd>
           </Button>
           {!hideScan && (
             <Button

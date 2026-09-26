@@ -16,6 +16,7 @@ import { Kbd, KbdGroup } from "@/components/ui/kbd";
  */
 const ROWS: Array<{ label: string; keys: string[] }> = [
   { label: "Focus scan / search", keys: ["F2"] },
+  { label: "Select customer", keys: ["F3"] },
   { label: "Navigate results + add", keys: ["↑", "↓", "Enter"] },
   { label: "Hold current order", keys: ["F4"] },
   { label: "Open payment", keys: ["F9"] },

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Kbd } from "@/components/ui/kbd";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Phone, User, Clock3, Loader2, Check } from "lucide-react";
 
@@ -30,8 +31,10 @@ export default function AddCustomerDialog() {
   const [showSuggest, setShowSuggest] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [activeIdx, setActiveIdx] = useState(-1);
   const nameRef = useRef<HTMLInputElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -51,6 +54,7 @@ export default function AddCustomerDialog() {
       setShowSuggest(false);
       setError("");
       setSaving(false);
+      setActiveIdx(-1);
       if (abortRef.current) abortRef.current.abort();
       if (debounceRef.current) clearTimeout(debounceRef.current);
     }
@@ -210,6 +214,57 @@ export default function AddCustomerDialog() {
   const displayList = suggestions.length > 0 ? suggestions : (!name.trim() && !phone.trim() && recent.length > 0 ? recent.slice(0, 5) : []);
   const isRecentMode = suggestions.length === 0 && !name.trim() && !phone.trim() && recent.length > 0;
 
+  // Keyboard nav (mirrors POS SearchBar): arrows cycle, Enter selects highlighted.
+  useEffect(() => {
+    if (showSuggest && displayList.length > 0) setActiveIdx(0);
+    else setActiveIdx(-1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSuggest, suggestions, recent, name, phone]);
+
+  const moveActive = (delta: 1 | -1) => {
+    setActiveIdx((prev) => {
+      if (displayList.length === 0) return -1;
+      const next = prev < 0 ? 0 : (prev + delta + displayList.length) % displayList.length;
+      requestAnimationFrame(() => {
+        const el = listRef.current?.querySelector(`[data-index="${next}"]`);
+        el?.scrollIntoView({ block: "nearest" });
+      });
+      return next;
+    });
+  };
+
+  const handleSuggestKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const open = showSuggest && displayList.length > 0;
+    if (e.key === "ArrowDown" && open) {
+      e.preventDefault();
+      moveActive(1);
+      return;
+    }
+    if (e.key === "ArrowUp" && open) {
+      e.preventDefault();
+      moveActive(-1);
+      return;
+    }
+    if (e.key === "Enter") {
+      // Dropdown open → select highlighted suggestion (never create-new here).
+      if (open && activeIdx >= 0 && activeIdx < displayList.length) {
+        e.preventDefault();
+        handleSelect(displayList[activeIdx]);
+        return;
+      }
+      if (name.trim() && !saving) {
+        e.preventDefault();
+        void handleSave();
+      }
+      return;
+    }
+    if (e.key === "Escape" && open) {
+      e.preventDefault();
+      setShowSuggest(false);
+      setActiveIdx(-1);
+    }
+  };
+
   return (
     <Dialog open={addCustomerModalOpen} onOpenChange={(o) => !o && !saving && closeAddCustomerModal()}>
       <DialogContent className="sm:max-w-[440px] p-0 gap-0 overflow-hidden">
@@ -235,10 +290,15 @@ export default function AddCustomerDialog() {
                 value={name}
                 onChange={(e) => handleNameChange(e.target.value)}
                 onFocus={handleFocusName}
+                onKeyDown={handleSuggestKeyDown}
                 placeholder="e.g., Ramesh Kumar"
                 className="h-9 text-sm pr-8"
                 autoComplete="off"
                 disabled={saving}
+                role="combobox"
+                aria-expanded={showSuggest && displayList.length > 0}
+                aria-activedescendant={activeIdx >= 0 ? `customer-opt-${activeIdx}` : undefined}
+                aria-controls="customer-suggest-list"
               />
               {selected && (
                 <span className="absolute right-2 top-1/2 -translate-y-1/2">
@@ -253,7 +313,7 @@ export default function AddCustomerDialog() {
             {showSuggest && (
               <div className="rounded-lg border bg-card shadow-md overflow-hidden">
                 <Command shouldFilter={false} className="rounded-lg">
-                  <CommandList>
+                  <CommandList ref={listRef} id="customer-suggest-list" role="listbox" aria-label="Customer suggestions">
                     {displayList.length > 0 ? (
                       <>
                         {isRecentMode && (
@@ -262,12 +322,18 @@ export default function AddCustomerDialog() {
                           </div>
                         )}
                         <CommandGroup>
-                          {displayList.map((c) => (
+                          {displayList.map((c, idx) => (
                             <CommandItem
                               key={c.id}
+                              id={`customer-opt-${idx}`}
+                              role="option"
                               value={c.id}
+                              data-index={idx}
                               onSelect={() => handleSelect(c)}
-                              className="flex items-center justify-between gap-2 py-2.5 aria-selected:bg-accent cursor-pointer"
+                              onMouseMove={() => setActiveIdx(idx)}
+                              data-selected={activeIdx === idx ? "true" : undefined}
+                              aria-selected={activeIdx === idx}
+                              className={`flex items-center justify-between gap-2 py-2.5 aria-selected:bg-accent cursor-pointer ${activeIdx === idx ? "bg-accent text-accent-foreground" : ""}`}
                             >
                               <div className="min-w-0">
                                 <div className="text-sm font-medium truncate flex items-center gap-1.5">
@@ -323,6 +389,7 @@ export default function AddCustomerDialog() {
               value={phone}
               onChange={(e) => handlePhoneChange(e.target.value)}
               onFocus={handleFocusPhone}
+              onKeyDown={handleSuggestKeyDown}
               placeholder="10-digit mobile number"
               inputMode="numeric"
               className="h-9 text-sm font-mono"
@@ -364,7 +431,7 @@ export default function AddCustomerDialog() {
                   New customer will be created: <span className="font-semibold">{name.trim()}</span> {phone ? `• ${phone}` : "(no phone)"}
                 </>
               ) : (
-                <>Tip: Select a suggestion above to use existing, or keep typing to create new &ldquo;{name.trim()}&rdquo;</>
+                <>Tip: <Kbd className="mx-0.5">↑</Kbd><Kbd className="mx-0.5">↓</Kbd> navigate • <Kbd className="mx-0.5">Enter</Kbd> selects, or keep typing to create new &ldquo;{name.trim()}&rdquo;</>
               )}
             </div>
           )}
