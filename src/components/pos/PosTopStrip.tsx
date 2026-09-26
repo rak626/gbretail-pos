@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Clock3 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ShoppingCart, Clock3, Keyboard } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
 import { useOnlineStore, OnlineDot } from "@/store/onlineStore";
 import UserMenu from "@/components/UserMenu";
@@ -47,11 +48,21 @@ export default function PosTopStrip() {
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        <Badge variant="outline" className="hidden lg:flex items-center gap-1.5 rounded-full">
+        <Badge variant="outline" className="hidden xl:flex items-center gap-1.5 rounded-full">
           <Clock3 className="w-3.5 h-3.5" />
           <span className="text-xs font-medium tabular-nums opacity-95">{time || "—"}</span>
         </Badge>
         <OnlineDot />
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="text-muted-foreground hover:text-foreground hover:bg-muted"
+          title="Keyboard shortcuts (?)"
+          aria-label="Keyboard shortcuts"
+          onClick={() => window.dispatchEvent(new CustomEvent("open-shortcut-help"))}
+        >
+          <Keyboard className="w-4 h-4" />
+        </Button>
         <ModeToggle className="text-muted-foreground hover:text-foreground hover:bg-muted" />
         <UserMenu />
       </div>

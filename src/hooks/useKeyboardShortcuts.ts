@@ -8,7 +8,37 @@ export function useKeyboardShortcuts() {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") return;
+      const inField = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT";
+
+      // F-keys work everywhere (even inside search) — this is what the POS UI advertises.
+      // F2 = focus scan/search, F4 = hold, F9 = pay, ? = shortcut help.
+      if (e.key === "F2") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("focus-search"));
+        return;
+      }
+      if (e.key === "F4") {
+        e.preventDefault();
+        const s = useCartStore.getState();
+        // Empty cart → view held bills instead of parking an empty one.
+        if (s.items.length === 0 && s.heldOrders.length > 0) {
+          window.dispatchEvent(new CustomEvent("open-held-bills"));
+          return;
+        }
+        s.holdOrder();
+        return;
+      }
+      if (e.key === "F9") {
+        e.preventDefault();
+        useCartStore.getState().openPaymentModal();
+        return;
+      }
+      if ((e.key === "?" || (e.shiftKey && e.code === "Slash")) && !inField) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("open-shortcut-help"));
+        return;
+      }
+      if (inField) return;
 
       const key = e.code;
       const shift = e.shiftKey;
@@ -33,7 +63,11 @@ export function useKeyboardShortcuts() {
           store.clearCart();
           break;
         case "Hold Order":
-          store.holdOrder();
+          if (store.items.length === 0 && store.heldOrders.length > 0) {
+            window.dispatchEvent(new CustomEvent("open-held-bills"));
+          } else {
+            store.holdOrder();
+          }
           break;
         case "Add Discount":
           // Focus discount input instead of no-op applyDiscount(0).

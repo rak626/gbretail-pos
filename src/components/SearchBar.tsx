@@ -20,6 +20,13 @@ export default function SearchBar({ size = "default" }: { size?: "default" | "he
   const catalog = useCatalogStore((s) => s.products);
   const loadCatalog = useCatalogStore((s) => s.loadCatalog);
   useEffect(() => { loadCatalog(); }, [loadCatalog]);
+  // 15" laptop: hero search grabs focus on mount so scanner + typing work instantly.
+  useEffect(() => {
+    if (size === "hero") {
+      const t = setTimeout(() => ref.current?.focus(), 60);
+      return () => clearTimeout(t);
+    }
+  }, [size]);
   const [results, setResults] = useState<Product[]>([]);
   const [show, setShow] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
@@ -66,6 +73,12 @@ export default function SearchBar({ size = "default" }: { size?: "default" | "he
       setResults([]);
       setShow(false);
       setSearching(false);
+      return;
+    }
+    // Exact barcode hit → add instantly, no dropdown dwell (scanner guns send full code + Enter).
+    const exact = catalog.find((p) => (p.barcode ?? "") === trimmed) as unknown as Product | undefined;
+    if (exact && !exact.is_loose && !isOutOfStock(exact)) {
+      add(exact);
       return;
     }
     const local = catalog
@@ -131,10 +144,25 @@ export default function SearchBar({ size = "default" }: { size?: "default" | "he
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "F2") {
+        e.preventDefault();
+        (e.currentTarget as HTMLInputElement)?.select?.();
+        return;
+      }
       if (!show || results.length === 0) {
         if (e.key === "ArrowDown" && results.length > 0) {
           e.preventDefault();
           setShow(true);
+        } else if (e.key === "Enter") {
+          // Scanner fallback: full barcode + Enter with no dropdown yet → exact match add.
+          const q = (e.currentTarget as HTMLInputElement)?.value?.trim() ?? "";
+          if (q) {
+            const exact = catalog.find((p) => (p.barcode ?? "") === q) as unknown as Product | undefined;
+            if (exact && !exact.is_loose && !isOutOfStock(exact)) {
+              e.preventDefault();
+              add(exact);
+            }
+          }
         }
         return;
       }
@@ -219,15 +247,18 @@ export default function SearchBar({ size = "default" }: { size?: "default" | "he
                     onMouseMove={() => setActiveIndex(idx)}
                     data-selected={activeIndex === idx ? "true" : undefined}
                     aria-selected={activeIndex === idx}
-                    className={`flex justify-between items-center py-2.5 px-3 aria-selected:bg-accent ${activeIndex === idx ? "bg-accent text-accent-foreground" : ""}`}
+                    className={`flex justify-between items-center gap-3 py-2.5 px-3 aria-selected:bg-accent ${activeIndex === idx ? "bg-accent text-accent-foreground" : ""}`}
                   >
-                    <span className="text-sm font-medium flex items-center gap-2 min-w-0">
+                    <span className="text-sm font-medium flex items-center gap-2 min-w-0 flex-1">
                       <span className="truncate">{p.name}</span>
-                      <Badge variant="secondary" className="text-xs shrink-0">{p.category}</Badge>
-                      {isOutOfStock(p) && <Badge variant="destructive" className="text-xs shrink-0">Out</Badge>}
-                      {!isOutOfStock(p) && isLowStock(p) && <Badge className="text-xs shrink-0 bg-amber-100 text-amber-800 border-amber-200">Low</Badge>}
+                      <Badge variant="secondary" className="text-[11px] shrink-0">{p.category}</Badge>
+                      {p.stockQuantity != null && !isOutOfStock(p) && !isLowStock(p) && (
+                        <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">{p.stockQuantity} left</span>
+                      )}
+                      {isOutOfStock(p) && <Badge variant="destructive" className="text-[11px] shrink-0">Out{typeof p.stockQuantity === "number" ? ` • ${p.stockQuantity}` : ""}</Badge>}
+                      {!isOutOfStock(p) && isLowStock(p) && <Badge className="text-[11px] shrink-0 bg-amber-100 text-amber-800 border-amber-200">Low • {p.stockQuantity}</Badge>}
                     </span>
-                    <span className="text-sm font-bold text-primary shrink-0 ml-2">{p.is_loose ? `${formatINR(p.rate_per_kg || 0)}/kg` : formatINR(p.price || 0)}</span>
+                    <span className="text-[15px] font-bold tabular-nums text-primary shrink-0 ml-2">{p.is_loose ? `${formatINR(p.rate_per_kg || 0)}/kg` : formatINR(p.price || 0)}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>

@@ -40,33 +40,36 @@ export default function PosProductCard({ product: p, onAdd }: Props) {
     <Card
       className={cn(
         "py-0 cursor-pointer transition-all hover:border-primary/40 hover:-translate-y-px active:translate-y-0 active:scale-[0.98] rounded-2xl",
-        out && "opacity-60"
+        out && "opacity-60 pointer-events-none"
       )}
       onClick={() => !out && onAdd(p)}
       aria-disabled={out}
     >
-      <CardContent className="p-3.5 min-h-[88px] flex flex-col justify-between gap-1.5">
+      <CardContent className="p-3.5 min-h-[102px] flex flex-col justify-between gap-2">
         <div className="flex items-start gap-2 min-w-0">
           <span className={cn("mt-1.5 w-2 h-2 rounded-full shrink-0", dotFor(p.category))} />
-          <div className="text-[15px] font-semibold leading-snug truncate flex-1">{p.name}</div>
-          <span className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
-            <Plus className="w-4 h-4" />
+          <div className="text-[15px] font-semibold leading-snug line-clamp-2 flex-1 min-h-[40px]">{p.name}</div>
+          <span className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
+            <Plus className="w-5 h-5" />
           </span>
         </div>
         <div className="flex items-center gap-2 pl-4">
-          <span className="text-[15px] font-bold tabular-nums tracking-tight">{formatINR(price)}</span>
-          {p.is_loose && <span className="text-[11px] text-muted-foreground font-medium">/kg</span>}
+          <span className="text-[18px] font-extrabold tabular-nums tracking-tight">{formatINR(price)}</span>
+          {p.is_loose && <span className="text-[12px] text-muted-foreground font-semibold">/kg</span>}
           {out && (
             <span className="ml-auto flex items-center gap-1 text-[11px] font-bold text-destructive">
-              <span className="w-1.5 h-1.5 rounded-full bg-destructive" /> Out
+              <span className="w-1.5 h-1.5 rounded-full bg-destructive" /> Out{typeof p.stockQuantity === "number" ? ` • ${p.stockQuantity}` : ""}
             </span>
           )}
           {low && (
             <span className="ml-auto flex items-center gap-1 text-[11px] font-bold text-amber-600">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Low
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Low{typeof p.stockQuantity === "number" ? ` • ${p.stockQuantity} left` : ""}
             </span>
           )}
-          {!out && !low && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
+          {!out && !low && typeof p.stockQuantity === "number" && (
+            <span className="ml-auto text-[11px] font-medium text-muted-foreground tabular-nums">{p.stockQuantity} left</span>
+          )}
+          {!out && !low && p.stockQuantity == null && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
         </div>
       </CardContent>
     </Card>

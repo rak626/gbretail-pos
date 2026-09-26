@@ -20,15 +20,14 @@ export function CartRow({ item, index, onUpdateQty, onRemove, onLooseEdit }: Car
 
   return (
     <TableRow className="bg-card hover:bg-accent/50 border-b">
-      <TableCell className="w-10 text-xs text-center text-muted-foreground">{index + 1}</TableCell>
       <TableCell className="min-w-0">
-        <div className="text-[15px] font-semibold leading-tight truncate flex items-center gap-1.5">
-          <span className="truncate">{item.name}</span>
+        <div className="text-[14px] font-semibold leading-tight line-clamp-2 flex items-center gap-1.5" title={item.name}>
+          <span className="line-clamp-2">{item.name}</span>
           {isCustom && <Badge variant="outline" className="text-[9px] h-4 px-1 bg-amber-50 text-amber-700 border-amber-200 shrink-0">External</Badge>}
           {isLoose && !isCustom && <Badge variant="secondary" className="text-[9px] h-4 px-1 shrink-0">Loose</Badge>}
         </div>
       </TableCell>
-      <TableCell className="w-24 text-center leading-tight">
+      <TableCell className="w-20 text-center leading-tight">
         <div className="text-[13px] font-semibold tabular-nums">{formatINR(item.price)}</div>
         <div className="text-[11px] text-muted-foreground">{getPerUnitText(item)}</div>
       </TableCell>
@@ -61,9 +60,9 @@ export function CartRow({ item, index, onUpdateQty, onRemove, onLooseEdit }: Car
           </div>
         )}
       </TableCell>
-      <TableCell className="w-28 text-right font-bold text-[15px] tabular-nums tracking-tight">{formatINR(item.lineTotal)}</TableCell>
-      <TableCell className="w-14 text-center">
-        <Button variant="ghost" size="icon" onClick={() => onRemove(index)} className="h-11 w-11 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10" aria-label={`Remove ${item.name}`}>
+      <TableCell className="w-24 text-right font-bold text-[15px] tabular-nums tracking-tight">{formatINR(item.lineTotal)}</TableCell>
+      <TableCell className="w-12 text-center">
+        <Button variant="ghost" size="icon" onClick={() => onRemove(index)} className="h-10 w-10 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10" aria-label={`Remove ${item.name}`}>
           <Trash2 className="w-4 h-4" />
         </Button>
       </TableCell>

@@ -34,6 +34,8 @@ interface CartState {
   holdOrder: () => void;
   resumeOrder: (items: CartItem[]) => void;
   resumeOrderByIndex: (index: number) => void;
+  discardHeldOrder: (index: number) => void;
+  clearHeldOrders: () => void;
   setCurrentCustomer: (customer: CartState["currentCustomer"]) => void;
   setOffline: (offline: boolean) => void;
   setSearchQuery: (query: string) => void;
@@ -158,18 +160,22 @@ export const useCartStore = create<CartState>()(
         }),
 
       holdOrder: () =>
-        set((state) => ({
-          heldOrders: [...state.heldOrders, state.items],
-          items: [],
-          discount: 0,
-          currentCustomer: null,
-          activeModal: null,
-          looseItemModalOpen: false,
-          customItemModalOpen: false,
-          paymentModalOpen: false,
-          addCustomerModalOpen: false,
-          printReceipt: false,
-        })),
+        set((state) => {
+          // Empty cart → no-op. Callers open the held list instead of parking [].
+          if (state.items.length === 0) return {};
+          return {
+            heldOrders: [...state.heldOrders, state.items],
+            items: [],
+            discount: 0,
+            currentCustomer: null,
+            activeModal: null,
+            looseItemModalOpen: false,
+            customItemModalOpen: false,
+            paymentModalOpen: false,
+            addCustomerModalOpen: false,
+            printReceipt: false,
+          };
+        }),
 
       resumeOrder: (items) =>
         set((state) => {
@@ -189,11 +195,20 @@ export const useCartStore = create<CartState>()(
         set((state) => {
           const held = state.heldOrders[index];
           if (!held) return {};
+          // Empty parks can never be resumed — just drop them.
+          if (held.length === 0) {
+            return { heldOrders: state.heldOrders.filter((_, i) => i !== index) };
+          }
           return {
             items: [...state.items, ...held],
             heldOrders: state.heldOrders.filter((_, i) => i !== index),
           };
         }),
+      discardHeldOrder: (index: number) =>
+        set((state) => ({
+          heldOrders: state.heldOrders.filter((_, i) => i !== index),
+        })),
+      clearHeldOrders: () => set({ heldOrders: [] }),
 
       setCurrentCustomer: (customer) => set({ currentCustomer: customer }),
       setOffline: (offline) => set({ isOffline: offline }),
@@ -262,6 +277,14 @@ export const useCartStore = create<CartState>()(
         productFreq: state.productFreq,
         recentIds: state.recentIds,
       }),
+      // Empty bills can never be held — drop legacy [] parks on load.
+      merge: (persisted, current) => {
+        const p = (persisted as Partial<CartState>) ?? {};
+        const held = Array.isArray(p.heldOrders)
+          ? (p.heldOrders as CartItem[][]).filter((h) => Array.isArray(h) && h.length > 0)
+          : current.heldOrders;
+        return { ...current, ...(p as object), heldOrders: held } as CartState;
+      },
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
       },

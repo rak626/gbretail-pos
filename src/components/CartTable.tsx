@@ -8,6 +8,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow } from "@/components
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ShoppingBag, PackageOpen, ScanLine } from "lucide-react";
 import { CartRow } from "@/components/cart/CartRow";
+import { Kbd } from "@/components/ui/kbd";
 
 export default function CartTable() {
   const items = useCartStore((s) => s.items);
@@ -46,19 +47,18 @@ export default function CartTable() {
               <div className="text-sm font-semibold">No items in cart</div>
               <span className="text-xs text-muted-foreground mt-1">Scan a barcode or search product above to add</span>
               <span className="inline-flex items-center gap-1.5 mt-4 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50 text-[11px] font-medium">
-                <ScanLine className="w-3.5 h-3.5" /> Press <kbd className="px-1 py-0.5 bg-card border rounded text-[10px]">F2</kbd> to scan
+                <ScanLine className="w-3.5 h-3.5" /> Press <Kbd className="bg-card">F2</Kbd> to scan
               </span>
             </div>
           ) : (
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-muted/30 backdrop-blur">
                 <TableRow className="hover:bg-transparent border-b">
-                  <TableHead className="w-10 text-xs text-center">#</TableHead>
-                  <TableHead className="text-xs">Product</TableHead>
-                  <TableHead className="w-24 text-xs text-center">Rate</TableHead>
+                  <TableHead className="text-xs min-w-0">Product</TableHead>
+                  <TableHead className="w-20 text-xs text-center">Rate</TableHead>
                   <TableHead className="w-36 text-xs text-center">Quantity</TableHead>
-                  <TableHead className="w-28 text-xs text-right">Price</TableHead>
-                  <TableHead className="w-14 text-xs text-center">Action</TableHead>
+                  <TableHead className="w-24 text-xs text-right">Price</TableHead>
+                  <TableHead className="w-12 text-xs text-center">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

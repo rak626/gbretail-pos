@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Loader2 } from "lucide-react";
+import { Kbd } from "@/components/ui/kbd";
 
 /** Spec default: start suggesting after 2 characters. */
 export const SEARCH_MIN_CHARS = 2;
@@ -71,10 +72,15 @@ export default function SearchBox({
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // focus-search shortcut same as product search
+  // F2 / scanner guns dispatch focus-search or focus-barcode — both land here.
   useEffect(() => {
     const h = () => ref.current?.focus();
     window.addEventListener("focus-search", h);
-    return () => window.removeEventListener("focus-search", h);
+    window.addEventListener("focus-barcode", h);
+    return () => {
+      window.removeEventListener("focus-search", h);
+      window.removeEventListener("focus-barcode", h);
+    };
   }, [ref]);
 
   useEffect(() => {
@@ -189,9 +195,9 @@ export default function SearchBox({
         />
       </div>
       {size === "hero" ? (
-        <kbd className="shrink-0 hidden sm:inline-block px-2 py-1 rounded-md bg-muted border text-[11px] font-semibold text-muted-foreground">
+        <Kbd className="shrink-0 hidden sm:inline-flex">
           F2
-        </kbd>
+        </Kbd>
       ) : null}
       <Button
         variant="ghost"

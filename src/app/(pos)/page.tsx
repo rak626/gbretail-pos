@@ -10,6 +10,8 @@ import SearchBar from "@/components/SearchBar";
 import CartTable from "@/components/CartTable";
 import PosProductCard from "@/components/pos/PosProductCard";
 import PosPayFooter from "@/components/pos/PosPayFooter";
+import PosShortcutHelp from "@/components/pos/PosShortcutHelp";
+import HeldBillsDialog from "@/components/pos/HeldBillsDialog";
 import LooseItemModal from "@/components/LooseItemModal";
 import CustomItemModal from "@/components/CustomItemModal";
 import PaymentModal from "@/components/PaymentModal";
@@ -130,7 +132,7 @@ export default function Home() {
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-0.5">
                   {category === "All" ? "Most frequent" : category}
                 </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
                   {mostFrequent.slice(0, 12).map((p) => (
                     <PosProductCard key={`freq-${p.id}`} product={p as unknown as Product} onAdd={handleProductClick} />
                   ))}
@@ -175,6 +177,8 @@ export default function Home() {
       {customItemModalOpen && <CustomItemModal />}
       {paymentModalOpen && <PaymentModal />}
       <AddCustomerDialog />
+      <PosShortcutHelp />
+      <HeldBillsDialog />
     </>
   );
 }

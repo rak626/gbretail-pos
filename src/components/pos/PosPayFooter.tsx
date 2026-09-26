@@ -6,6 +6,7 @@ import { formatINR } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import { BadgePercent, Pause, Plus } from "lucide-react";
 
 /**
@@ -15,6 +16,7 @@ import { BadgePercent, Pause, Plus } from "lucide-react";
  */
 export default function PosPayFooter() {
   const items = useCartStore((s) => s.items);
+  const heldOrders = useCartStore((s) => s.heldOrders);
   const discount = useCartStore((s) => s.discount);
   const applyDiscount = useCartStore((s) => s.applyDiscount);
   const holdOrder = useCartStore((s) => s.holdOrder);
@@ -28,12 +30,22 @@ export default function PosPayFooter() {
   const grand = calculateGrandTotal();
   const count = items.length;
   const empty = count === 0;
+  const holdDisabled = empty && heldOrders.length === 0;
 
   const doDisc = () => {
     const n = parseFloat(val);
     if (!isNaN(n) && n >= 0) applyDiscount(n);
     setShowDisc(false);
     setVal("");
+  };
+
+  const handleHold = () => {
+    // Empty cart → show held list instead of parking an empty bill.
+    if (items.length === 0) {
+      window.dispatchEvent(new CustomEvent("open-held-bills"));
+      return;
+    }
+    holdOrder();
   };
 
   return (
@@ -43,9 +55,17 @@ export default function PosPayFooter() {
           <span className="text-[13px] text-muted-foreground font-medium">
             {count} {count === 1 ? "item" : "items"}
             {discount > 0 && <span className="text-primary font-semibold"> • −{formatINR(discount)} off</span>}
+            {heldOrders.length > 0 && (
+              <button
+                type="button"
+                className="text-amber-600 font-semibold hover:underline"
+                title="View held bills"
+                onClick={() => window.dispatchEvent(new CustomEvent("open-held-bills"))}
+              > • {heldOrders.filter((h) => h.length > 0).length || heldOrders.length} held</button>
+            )}
           </span>
           <span className="text-[13px] text-muted-foreground font-medium">
-            Total <span className="text-foreground font-black text-[20px] tabular-nums tracking-tight ml-1">{formatINR(grand)}</span>
+            Total <span className="text-foreground font-black text-[24px] tabular-nums tracking-tight ml-1">{formatINR(grand)}</span>
           </span>
         </div>
 
@@ -74,19 +94,22 @@ export default function PosPayFooter() {
             variant="outline"
             onClick={() => setShowDisc((v) => !v)}
             className="h-12 rounded-xl text-[13px] font-semibold gap-1.5"
+            title="Discount (Shift+D)"
           >
             <BadgePercent className="w-4 h-4" /> Discount
           </Button>
-          <Button variant="outline" onClick={holdOrder} className="h-12 rounded-xl text-[13px] font-semibold gap-1.5">
-            <Pause className="w-4 h-4" /> Hold
+          <Button variant="outline" onClick={handleHold} disabled={holdDisabled} className="h-12 rounded-xl text-[13px] font-semibold gap-1.5" title={empty ? "View held bills (F4)" : "Hold order (F4)"}>
+            <Pause className="w-4 h-4" /> Hold{heldOrders.length > 0 ? ` (${heldOrders.length})` : ""}
+            <Kbd className="hidden xl:inline-flex ml-1">F4</Kbd>
           </Button>
-          <Button variant="outline" onClick={openCustomModal} className="h-12 rounded-xl text-[13px] font-semibold gap-1.5">
+          <Button variant="outline" onClick={openCustomModal} className="h-12 rounded-xl text-[13px] font-semibold gap-1.5" title="Custom item (Shift+X)">
             <Plus className="w-4 h-4" /> Custom
           </Button>
         </div>
 
-        <Button onClick={openPaymentModal} disabled={empty} className="w-full h-16 rounded-2xl text-[18px] font-bold gap-2">
+        <Button onClick={openPaymentModal} disabled={empty} className="w-full h-[68px] rounded-2xl text-[19px] font-bold gap-2" title="Pay (F9)">
           {empty ? "Payment" : `Pay ${formatINR(grand)}`}
+          {!empty && <Kbd className="hidden xl:inline-flex ml-1 border-primary-foreground/30 bg-primary-foreground/15 text-primary-foreground">F9</Kbd>}
         </Button>
       </CardContent>
     </Card>
