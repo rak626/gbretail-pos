@@ -9,8 +9,11 @@ import { fetchProducts } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
-import SearchBox from "@/components/SearchBox";
+import SearchBox, { SEARCH_MIN_CHARS } from "@/components/SearchBox";
 import { Barcode } from "lucide-react";
+
+const LISTBOX_ID = "pos-search-listbox";
+const optionId = (idx: number) => `pos-search-opt-${idx}`;
 
 export default function SearchBar({ size = "default" }: { size?: "default" | "hero" }) {
   const { searchQuery, setSearchQuery, openLooseModal, addItem } = useCartStore();
@@ -20,15 +23,17 @@ export default function SearchBar({ size = "default" }: { size?: "default" | "he
   const [results, setResults] = useState<Product[]>([]);
   const [show, setShow] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
+  const [searching, setSearching] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const doSearchApi = useCallback(async (trimmed: string, local: Product[]) => {
-    if (trimmed.startsWith(" ") || !trimmed || trimmed.length < 3) return;
+    if (trimmed.startsWith(" ") || !trimmed || trimmed.length < SEARCH_MIN_CHARS) return;
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
+    setSearching(true);
     try {
       const api = await fetchProducts({ search: trimmed, limit: 10 }, { signal: controller.signal });
       if (controller.signal.aborted) return;
@@ -38,10 +43,11 @@ export default function SearchBar({ size = "default" }: { size?: "default" | "he
         setResults([]);
       }
       setShow(true);
-      requestAnimationFrame(() => ref.current?.focus());
     } catch (e) {
       if ((e as Error)?.name === "AbortError") return;
       setShow(true);
+    } finally {
+      if (abortRef.current === controller) setSearching(false);
     }
   }, []);
 
@@ -51,13 +57,15 @@ export default function SearchBar({ size = "default" }: { size?: "default" | "he
       if (abortRef.current) abortRef.current.abort();
       setResults([]);
       setShow(false);
+      setSearching(false);
       return;
     }
     const trimmed = v.trim();
-    if (!trimmed || trimmed.length < 3) {
+    if (!trimmed || trimmed.length < SEARCH_MIN_CHARS) {
       if (abortRef.current) abortRef.current.abort();
       setResults([]);
       setShow(false);
+      setSearching(false);
       return;
     }
     const local = catalog
@@ -65,11 +73,10 @@ export default function SearchBar({ size = "default" }: { size?: "default" | "he
       .slice(0, 10) as unknown as Product[];
     setResults(local);
     setShow(true);
-    requestAnimationFrame(() => ref.current?.focus());
   };
 
   const handleDebouncedSearch = (trimmed: string) => {
-    if (!trimmed || trimmed.length < 3 || trimmed.startsWith(" ")) {
+    if (!trimmed || trimmed.length < SEARCH_MIN_CHARS || trimmed.startsWith(" ")) {
       setResults([]);
       setShow(false);
       return;
@@ -84,12 +91,13 @@ export default function SearchBar({ size = "default" }: { size?: "default" | "he
     if (abortRef.current) abortRef.current.abort();
     setResults([]);
     setShow(false);
+    setSearching(false);
   };
 
   const handleFocusSearch = (q: string) => {
     if (q.startsWith(" ")) return;
     const trimmed = q.trim();
-    if (!trimmed || trimmed.length < 3) return;
+    if (!trimmed || trimmed.length < SEARCH_MIN_CHARS) return;
     if (results.length > 0) {
       setShow(true);
       return;
@@ -168,7 +176,7 @@ export default function SearchBar({ size = "default" }: { size?: "default" | "he
     <Popover
       open={show}
       onOpenChange={(open) => {
-        if (open && (!searchQuery.trim() || searchQuery.trim().length < 3 || searchQuery.startsWith(" "))) return;
+        if (open && (!searchQuery.trim() || searchQuery.trim().length < SEARCH_MIN_CHARS || searchQuery.startsWith(" "))) return;
         setShow(open);
       }}
       modal={false}
@@ -185,16 +193,26 @@ export default function SearchBar({ size = "default" }: { size?: "default" | "he
             inputRef={ref}
             onKeyDown={handleKeyDown}
             size={size}
+            loading={searching}
+            combobox={{
+              expanded: show,
+              controlsId: LISTBOX_ID,
+              activeId: activeIndex >= 0 && activeIndex < results.length ? optionId(activeIndex) : null,
+            }}
           />
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--anchor-width)] p-0" align="start" sideOffset={6}>
+      <PopoverContent className="w-[var(--anchor-width)] p-0" align="start" sideOffset={6} initialFocus={false}>
         <Command shouldFilter={false} className="rounded-lg">
-          <CommandList ref={listRef}>
-            {results.length > 0 ? (
+          <CommandList ref={listRef} id={LISTBOX_ID} role="listbox" aria-label="Product suggestions">
+            {searching && results.length === 0 ? (
+              <div className="py-6 text-center text-sm text-muted-foreground" role="status">Searching…</div>
+            ) : results.length > 0 ? (
               <CommandGroup>
                 {results.map((p, idx) => (
                   <CommandItem
                     key={p.id}
+                    id={optionId(idx)}
+                    role="option"
                     value={p.name}
                     data-index={idx}
                     onSelect={() => add(p)}

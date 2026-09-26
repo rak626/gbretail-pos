@@ -4,7 +4,19 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
+
+/** Spec default: start suggesting after 2 characters. */
+export const SEARCH_MIN_CHARS = 2;
+
+type ComboboxA11y = {
+  /** Whether the suggestion dropdown is currently open */
+  expanded: boolean;
+  /** id of the listbox element showing suggestions */
+  controlsId?: string;
+  /** id of the highlighted option, if any */
+  activeId?: string | null;
+};
 
 type SearchBoxProps = {
   placeholder?: string;
@@ -16,6 +28,12 @@ type SearchBoxProps = {
   onClear?: () => void;
   onFocusSearch?: (query: string) => void;
   debounceMs?: number;
+  /** Minimum trimmed characters before searching (default SEARCH_MIN_CHARS). */
+  minChars?: number;
+  /** Shows a spinner while suggestions are being fetched. */
+  loading?: boolean;
+  /** ARIA combobox wiring for dropdown usages (off for plain filters). */
+  combobox?: ComboboxA11y;
   inputRef?: React.RefObject<HTMLInputElement | null>;
   disabled?: boolean;
   autoFocus?: boolean;
@@ -34,6 +52,9 @@ export default function SearchBox({
   onClear,
   onFocusSearch,
   debounceMs = 300,
+  minChars = SEARCH_MIN_CHARS,
+  loading = false,
+  combobox,
   inputRef: externalRef,
   disabled,
   autoFocus,
@@ -71,7 +92,7 @@ export default function SearchBox({
         return;
       }
       const trimmed = q.trim();
-      if (!trimmed || trimmed.length < 3) {
+      if (!trimmed || trimmed.length < minChars) {
         if (debounceRef.current) clearTimeout(debounceRef.current);
         onClear?.();
         if (trimmed) onSearch("");
@@ -80,10 +101,9 @@ export default function SearchBox({
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
         onSearch(trimmed);
-        requestAnimationFrame(() => ref.current?.focus());
       }, debounceMs);
     },
-    [onSearch, onClear, debounceMs, ref]
+    [onSearch, onClear, debounceMs, minChars]
   );
 
   const handleChange = (v: string) => {
@@ -98,12 +118,12 @@ export default function SearchBox({
       return;
     }
     const trimmed = v.trim();
-    if (trimmed.length < 3) {
+    if (trimmed.length < minChars) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       onClear?.();
       return;
     }
-    // debounce non-empty >=3 chars
+    // debounce non-empty query at/above minChars
     triggerSearch(v);
   };
 
@@ -113,7 +133,7 @@ export default function SearchBox({
       return;
     }
     const trimmed = value.trim();
-    if (!trimmed || trimmed.length < 3) {
+    if (!trimmed || trimmed.length < minChars) {
       onClear?.();
       return;
     }
@@ -125,7 +145,7 @@ export default function SearchBox({
   const handleFocus = () => {
     if (value.startsWith(" ")) return;
     const trimmed = value.trim();
-    if (!trimmed || trimmed.length < 3) return;
+    if (!trimmed || trimmed.length < minChars) return;
     if (onFocusSearch) {
       onFocusSearch(trimmed);
     } else {
@@ -161,6 +181,11 @@ export default function SearchBox({
           }
           disabled={disabled}
           autoFocus={autoFocus}
+          role={combobox ? "combobox" : undefined}
+          aria-autocomplete={combobox ? "list" : undefined}
+          aria-expanded={combobox ? combobox.expanded : undefined}
+          aria-controls={combobox?.controlsId}
+          aria-activedescendant={combobox?.activeId ?? undefined}
         />
       </div>
       {size === "hero" ? (
@@ -173,10 +198,18 @@ export default function SearchBox({
         size="icon-sm"
         className="shrink-0 !min-h-0 !min-w-0 h-7 w-7"
         onClick={handleSearchClick}
-        aria-label="Search"
+        aria-label={loading ? "Searching" : "Search"}
         type="button"
+        disabled={disabled || loading}
       >
-        <Search className="w-3.5 h-3.5" />
+        {loading ? (
+          <>
+            <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
+            <span className="sr-only">Searching…</span>
+          </>
+        ) : (
+          <Search className="w-3.5 h-3.5" />
+        )}
       </Button>
     </>
   );
