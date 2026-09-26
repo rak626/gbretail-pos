@@ -236,17 +236,17 @@ export default function PaymentModal() {
 
   return (
     <Dialog open={paymentModalOpen} onOpenChange={(o) => !o && closePaymentModal()}>
-      <DialogContent className="sm:max-w-[480px] p-0 gap-0 overflow-hidden">
-        <DialogHeader className="p-5 pb-3">
-          <DialogTitle className="text-[14px]">Payment</DialogTitle>
-          <DialogDescription className="text-[11px]">Choose payment method — order will be auto-saved</DialogDescription>
+      <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="p-6 pb-4">
+          <DialogTitle className="text-[17px]">Payment</DialogTitle>
+          <DialogDescription className="text-[13px]">Choose payment method — order will be auto-saved</DialogDescription>
         </DialogHeader>
 
-        <div className="px-5 pb-6 space-y-3">
+        <div className="px-6 pb-6 space-y-4">
           <Card className="bg-primary/5 border-primary/10 py-0">
-            <CardContent className="p-2.5 text-center">
-              <div className="text-[10px] font-medium text-muted-foreground tracking-wide uppercase">Grand Total</div>
-              <div className="text-[22px] font-black tracking-tight text-primary">{formatINR(grandTotal)}</div>
+            <CardContent className="p-3 text-center">
+              <div className="text-[11px] font-medium text-muted-foreground tracking-wide uppercase">Grand Total</div>
+              <div className="text-[28px] font-black tracking-tight text-primary tabular-nums">{formatINR(grandTotal)}</div>
             </CardContent>
           </Card>
 
@@ -264,34 +264,34 @@ export default function PaymentModal() {
             </div>
           )}
 
-          <div className="grid gap-2">
-            <Button onClick={handleCash} disabled={saving || offline || items.length === 0} title={offline ? OFFLINE_REASON : undefined} size="sm" className="h-auto py-2.5 flex-col gap-0">
-              <span className="font-bold text-xs flex items-center gap-1.5">Cash Payment <span className="px-1 py-0.5 bg-white/20 rounded text-[9px]">K</span></span>
-              <span className="text-[10px] opacity-80 font-normal">{saving ? "Saving..." : offline ? "Offline — billing paused" : "Complete sale with cash"}</span>
+          <div className="grid gap-2.5">
+            <Button onClick={handleCash} disabled={saving || offline || items.length === 0} title={offline ? OFFLINE_REASON : undefined} size="sm" className="h-auto py-3 flex-col gap-0.5">
+              <span className="font-bold text-sm flex items-center gap-1.5">Cash Payment <span className="px-1 py-0.5 bg-white/20 rounded text-[10px]">K</span></span>
+              <span className="text-xs opacity-80 font-normal">{saving ? "Saving..." : offline ? "Offline — billing paused" : "Complete sale with cash"}</span>
             </Button>
 
-            <Button onClick={handleUPIPayment} disabled={saving || offline || items.length === 0} title={offline ? OFFLINE_REASON : undefined} variant="secondary" size="sm" className="h-auto py-2.5 flex-col gap-0 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white">
-              <span className="font-bold text-xs flex items-center gap-1.5">UPI QR <span className="px-1 py-0.5 bg-white text-blue-700 rounded text-[9px]">Shift+U</span></span>
-              <span className="text-[10px] opacity-80">Scan QR to pay {formatINR(grandTotal)}</span>
+            <Button onClick={handleUPIPayment} disabled={saving || offline || items.length === 0} title={offline ? OFFLINE_REASON : undefined} variant="secondary" size="sm" className="h-auto py-3 flex-col gap-0.5 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white">
+              <span className="font-bold text-sm flex items-center gap-1.5">UPI QR <span className="px-1 py-0.5 bg-white text-blue-700 rounded text-[10px]">Shift+U</span></span>
+              <span className="text-xs opacity-80">Scan QR to pay {formatINR(grandTotal)}</span>
             </Button>
           </div>
 
           <Separator />
 
-          <div className="space-y-2">
-            <Label className="text-[11px] font-semibold">Khata (Credit) — Shift+L</Label>
-            <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder={currentCustomer?.name ?? "Customer name"} className="h-8 text-xs" />
-            <Input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder={currentCustomer?.phone ?? "Phone number"} type="tel" className="h-8 text-xs" />
-            <div className="space-y-1.5">
-              <Label className="text-[10px] text-muted-foreground">Credit term</Label>
-              <div className="grid grid-cols-4 gap-1.5">
+          <div className="space-y-2.5">
+            <Label className="text-[13px] font-semibold">Khata (Credit) — Shift+L</Label>
+            <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder={currentCustomer?.name ?? "Customer name"} className="h-11 text-[15px]" />
+            <Input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder={currentCustomer?.phone ?? "Phone number"} type="tel" className="h-11 text-[15px]" />
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Credit term</Label>
+              <div className="grid grid-cols-4 gap-2">
                 {(["7", "15", "30", "custom"] as const).map((t) => (
                   <Button
                     key={t}
                     type="button"
                     variant={creditTerm === t ? "default" : "outline"}
                     size="sm"
-                    className="h-7 text-[11px] px-1"
+                    className="h-9 text-[13px] px-1"
                     onClick={() => setCreditTerm(t)}
                   >
                     {t === "7" ? "7 days" : t === "15" ? "15 days" : t === "30" ? "1 month" : "Custom"}
@@ -306,7 +306,7 @@ export default function PaymentModal() {
                   value={customDays}
                   onChange={(e) => setCustomDays(e.target.value.replace(/\D/g, "").slice(0, 3))}
                   placeholder="Custom days (1-365)"
-                  className="h-8 text-xs"
+                  className="h-11 text-[15px]"
                   autoFocus
                 />
               )}
@@ -331,7 +331,7 @@ export default function PaymentModal() {
               title={offline ? OFFLINE_REASON : undefined}
               variant="secondary"
               size="sm"
-              className="w-full bg-violet-600 hover:bg-violet-700 text-white dark:bg-violet-600 h-8 text-xs"
+              className="w-full bg-violet-600 hover:bg-violet-700 text-white dark:bg-violet-600 h-11 text-sm"
             >
               {saving ? "Saving..." : offline ? "Offline — billing paused" : `Add to Ledger — ${formatINR(grandTotal)}`}
             </Button>
@@ -340,11 +340,11 @@ export default function PaymentModal() {
 
           <Separator />
 
-          <div className="space-y-1.5">
-            <Label className="text-[11px] font-semibold">Split Bill (Cash + UPI)</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-[10px] text-muted-foreground">Cash</Label>
+          <div className="space-y-2">
+            <Label className="text-[13px] font-semibold">Split Bill (Cash + UPI)</Label>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Cash</Label>
                 <Input
                   type="number"
                   value={splitCash}
@@ -355,11 +355,11 @@ export default function PaymentModal() {
                     setSplitUpi(cash ? (grandTotal - cash).toFixed(2) : "");
                   }}
                   placeholder="0.00"
-                  className="h-8 text-xs"
+                  className="h-11 text-[15px] tabular-nums"
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-[10px] text-muted-foreground">UPI</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">UPI</Label>
                 <Input
                   type="number"
                   value={splitUpi}
@@ -370,27 +370,27 @@ export default function PaymentModal() {
                     setSplitCash(upi ? (grandTotal - upi).toFixed(2) : "");
                   }}
                   placeholder="0.00"
-                  className="h-8 text-xs"
+                  className="h-11 text-[15px] tabular-nums"
                 />
               </div>
             </div>
-            <div className="text-[10px] text-center text-muted-foreground">
+            <div className="text-xs text-center text-muted-foreground tabular-nums">
               Cash {formatINR(parseFloat(splitCash) || 0)} + UPI {formatINR(parseFloat(splitUpi) || 0)} = {formatINR((parseFloat(splitCash) || 0) + (parseFloat(splitUpi) || 0))} / {formatINR(grandTotal)}
             </div>
-            <Button onClick={handleSplitBill} disabled={saving || offline || Math.abs((parseFloat(splitCash) || 0) + (parseFloat(splitUpi) || 0) - grandTotal) > 0.01} title={offline ? OFFLINE_REASON : undefined} size="sm" className="w-full bg-gradient-to-r from-primary to-blue-600 hover:opacity-90 h-8 text-xs">
+            <Button onClick={handleSplitBill} disabled={saving || offline || Math.abs((parseFloat(splitCash) || 0) + (parseFloat(splitUpi) || 0) - grandTotal) > 0.01} title={offline ? OFFLINE_REASON : undefined} size="sm" className="w-full bg-gradient-to-r from-primary to-blue-600 hover:opacity-90 h-11 text-sm">
               {saving ? "Saving..." : offline ? "Offline — billing paused" : "Pay Split Bill"}
             </Button>
           </div>
 
         </div>
-        <DialogFooter className="p-4 gap-3">
+        <DialogFooter className="p-5 gap-3">
           <Button variant="ghost" onClick={() => {
             const orderItems = buildReceiptItems();
             printReceipt(orderItems, grandTotal, discount);
-          }} className="h-9 w-full sm:w-auto px-6">
+          }} className="h-11 w-full sm:w-auto px-6 text-sm">
             Print Receipt Only
           </Button>
-          <Button variant="outline" onClick={closePaymentModal} className="h-9 px-6 min-w-[96px]">Close</Button>
+          <Button variant="outline" onClick={closePaymentModal} className="h-11 px-6 min-w-[110px] text-sm">Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

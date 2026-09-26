@@ -70,22 +70,34 @@ export default function SearchBox({
   const innerRef = useRef<HTMLInputElement>(null);
   const ref = (externalRef as React.RefObject<HTMLInputElement | null>) ?? innerRef;
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  // F2 pulse — visible "scan ready" feedback for the counter guy.
+  const [pulse, setPulse] = useState(false);
+  const pulseTimer = useRef<NodeJS.Timeout | null>(null);
 
   // focus-search shortcut same as product search
   // F2 / scanner guns dispatch focus-search or focus-barcode — both land here.
   useEffect(() => {
-    const h = () => ref.current?.focus();
+    const h = () => {
+      ref.current?.focus();
+      ref.current?.select?.();
+      // Re-triggerable pulse: rapid F2 presses still flash.
+      if (pulseTimer.current) clearTimeout(pulseTimer.current);
+      setPulse(true);
+      pulseTimer.current = setTimeout(() => setPulse(false), 450);
+    };
     window.addEventListener("focus-search", h);
     window.addEventListener("focus-barcode", h);
     return () => {
       window.removeEventListener("focus-search", h);
       window.removeEventListener("focus-barcode", h);
+      if (pulseTimer.current) clearTimeout(pulseTimer.current);
     };
   }, [ref]);
 
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (pulseTimer.current) clearTimeout(pulseTimer.current);
     };
   }, []);
 
@@ -195,7 +207,7 @@ export default function SearchBox({
         />
       </div>
       {size === "hero" ? (
-        <Kbd className="shrink-0 hidden sm:inline-flex">
+        <Kbd className={`shrink-0 hidden sm:inline-flex transition-colors duration-200 ${pulse ? "bg-primary text-primary-foreground border-primary" : ""}`}>
           F2
         </Kbd>
       ) : null}
@@ -226,7 +238,13 @@ export default function SearchBox({
 
   if (size === "hero") {
     return (
-      <div className="w-full rounded-2xl border bg-card shadow-sm ring-1 ring-primary/10 focus-within:ring-primary/30 transition-shadow">
+      <div
+        className={`w-full rounded-2xl border bg-card shadow-sm ring-1 transition-all duration-200 motion-safe:transition-all ${
+          pulse
+            ? "motion-safe:scale-[1.015] ring-2 ring-primary/50 shadow-md"
+            : "ring-primary/10 focus-within:ring-2 focus-within:ring-primary/40 focus-within:shadow-md"
+        }`}
+      >
         <div className="px-3 py-2 flex flex-row items-center gap-2.5">{content}</div>
       </div>
     );

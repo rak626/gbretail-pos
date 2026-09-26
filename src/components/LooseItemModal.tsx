@@ -163,7 +163,7 @@ export default function LooseItemModal() {
 
   return (
     <Dialog open={looseItemModalOpen} onOpenChange={(o) => !o && closeLooseModal()}>
-      <DialogContent className="sm:max-w-[520px] p-0 gap-0 overflow-hidden max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden max-h-[90vh] overflow-y-auto">
         <DialogHeader className="p-5 pb-3">
           <DialogTitle className="text-[17px] pr-6 leading-tight flex items-center gap-2">
             {looseProduct.name}

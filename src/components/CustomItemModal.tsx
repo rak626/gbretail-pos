@@ -46,27 +46,27 @@ export default function CustomItemModal() {
 
   return (
     <Dialog open={customItemModalOpen} onOpenChange={(o) => !o && closeCustomModal()}>
-      <DialogContent className="sm:max-w-[420px] p-0 gap-0 overflow-hidden">
-        <DialogHeader className="p-5 pb-3">
-          <DialogTitle className="text-[14px]">Add Custom Item</DialogTitle>
-          <DialogDescription className="text-[11px]">Create a custom product for this bill</DialogDescription>
+      <DialogContent className="sm:max-w-[560px] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="p-6 pb-4">
+          <DialogTitle className="text-[17px]">Add Custom Item</DialogTitle>
+          <DialogDescription className="text-[13px]">Create a custom product for this bill</DialogDescription>
         </DialogHeader>
-        <div className="px-5 pb-6 space-y-2.5">
-          <div className="space-y-1">
-            <Label htmlFor="custom-name" className="text-[11px]">Item Name *</Label>
-            <Input id="custom-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Potato" className="h-8 text-xs" />
+        <div className="px-6 pb-6 space-y-3.5">
+          <div className="space-y-1.5">
+            <Label htmlFor="custom-name" className="text-[13px] font-semibold">Item Name *</Label>
+            <Input id="custom-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Potato" className="h-11 text-[15px]" />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="custom-qty" className="text-[11px]">Quantity / Description</Label>
-            <Input id="custom-qty" value={quantityDesc} onChange={(e) => setQuantityDesc(e.target.value)} placeholder="e.g., 2 kg" className="h-8 text-xs" />
+          <div className="space-y-1.5">
+            <Label htmlFor="custom-qty" className="text-[13px] font-semibold">Quantity / Description</Label>
+            <Input id="custom-qty" value={quantityDesc} onChange={(e) => setQuantityDesc(e.target.value)} placeholder="e.g., 2 kg" className="h-11 text-[15px]" />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="custom-price" className="text-[11px]">Selling Price (₹) *</Label>
-            <Input id="custom-price" type="number" value={sellingPrice} onChange={(e) => setSellingPrice(e.target.value)} placeholder="Selling price" className="h-8 text-xs" />
+          <div className="space-y-1.5">
+            <Label htmlFor="custom-price" className="text-[13px] font-semibold">Selling Price (₹) *</Label>
+            <Input id="custom-price" type="number" value={sellingPrice} onChange={(e) => setSellingPrice(e.target.value)} placeholder="Selling price" className="h-11 text-[15px] font-semibold tabular-nums" />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="custom-cost" className="text-[11px]">Cost Price (₹) <span className="text-muted-foreground font-normal">[Optional]</span></Label>
-            <Input id="custom-cost" type="number" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} placeholder="Cost price (for margin)" className="h-8 text-xs" />
+          <div className="space-y-1.5">
+            <Label htmlFor="custom-cost" className="text-[13px] font-semibold">Cost Price (₹) <span className="text-muted-foreground font-normal">[Optional]</span></Label>
+            <Input id="custom-cost" type="number" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} placeholder="Cost price (for margin)" className="h-11 text-[15px] tabular-nums" />
           </div>
 
           {profitMargin && (
@@ -75,9 +75,9 @@ export default function CustomItemModal() {
             </div>
           )}
         </div>
-        <DialogFooter className="p-4 gap-3 sm:justify-end">
-          <Button variant="outline" onClick={closeCustomModal} className="h-9 px-6 min-w-[96px]">Cancel</Button>
-          <Button onClick={handleAdd} className="h-9 px-6 min-w-[160px]">
+        <DialogFooter className="p-5 gap-3 sm:justify-end">
+          <Button variant="outline" onClick={closeCustomModal} className="h-11 px-6 min-w-[110px] text-sm">Cancel</Button>
+          <Button onClick={handleAdd} className="h-11 px-6 min-w-[180px] text-sm">
             ADD TO CART — {formatINR(parseFloat(sellingPrice || "0"))}
           </Button>
         </DialogFooter>

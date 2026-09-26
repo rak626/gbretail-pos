@@ -15,7 +15,7 @@ import { Kbd, KbdGroup } from "@/components/ui/kbd";
  * Open via `?` key, keyboard icon in PosTopStrip, or `open-shortcut-help` event.
  */
 const ROWS: Array<{ label: string; keys: string[] }> = [
-  { label: "Focus scan / search", keys: ["F2"] },
+  { label: "Product search (spotlight)", keys: ["F2"] },
   { label: "Select customer", keys: ["F3"] },
   { label: "Navigate results + add", keys: ["↑", "↓", "Enter"] },
   { label: "Hold current order", keys: ["F4"] },

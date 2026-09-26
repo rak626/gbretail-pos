@@ -11,10 +11,12 @@ export function useKeyboardShortcuts() {
       const inField = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT";
 
       // F-keys work everywhere (even inside search) — this is what the POS UI advertises.
-      // F2 = focus scan/search, F3 = select customer, F4 = hold, F9 = pay, ? = shortcut help.
+      // F2 = product search spotlight, F3 = select customer, F4 = hold, F9 = pay, ? = shortcut help.
+      // NOTE: billing-only — this hook mounts solely in (pos)/page, so F2 opens
+      // the billing palette and never touches admin/inventory search boxes.
       if (e.key === "F2") {
         e.preventDefault();
-        window.dispatchEvent(new CustomEvent("focus-search"));
+        window.dispatchEvent(new CustomEvent("open-search-palette"));
         return;
       }
       if (e.key === "F3") {

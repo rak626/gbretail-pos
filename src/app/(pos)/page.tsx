@@ -6,12 +6,13 @@ import { useCartStore, initializeOfflineDetection } from "@/store/cartStore";
 import { useCatalogStore, selectCatalogCategories } from "@/store/catalogStore";
 import { useAuthStore } from "@/store/authStore";
 import CustomerSection from "@/components/CustomerSection";
-import SearchBar from "@/components/SearchBar";
+import ProductSearchTrigger from "@/components/pos/ProductSearchTrigger";
 import CartTable from "@/components/CartTable";
 import PosProductCard from "@/components/pos/PosProductCard";
 import PosPayFooter from "@/components/pos/PosPayFooter";
 import PosShortcutHelp from "@/components/pos/PosShortcutHelp";
 import HeldBillsDialog from "@/components/pos/HeldBillsDialog";
+import SearchPalette from "@/components/pos/SearchPalette";
 import LooseItemModal from "@/components/LooseItemModal";
 import CustomItemModal from "@/components/CustomItemModal";
 import PaymentModal from "@/components/PaymentModal";
@@ -97,28 +98,28 @@ export default function Home() {
     <>
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className="grid grid-cols-12 gap-0 flex-1 min-h-0">
-          {/* Left: customer + hero search + category chips + products */}
-          <div className="col-span-12 lg:col-span-8 flex flex-col min-h-0 overflow-hidden lg:border-r bg-background">
-            <div className="shrink-0 border-b bg-background px-3 py-1.5">
+          {/* Left: customer card + search card */}
+          <div className="col-span-12 lg:col-span-8 flex flex-col min-h-0 overflow-hidden lg:border-r bg-muted/40 p-3 gap-3">
+            <div className="shrink-0 rounded-2xl border bg-card">
               <CustomerSection compact hideScan />
             </div>
-            <div className="shrink-0 px-3 pt-3 pb-2">
-              <SearchBar size="hero" />
-            </div>
-            <div className="shrink-0 px-3 pb-2 flex gap-1.5 overflow-x-auto">
-              {categories.map((c) => (
-                <Button
-                  key={c}
-                  variant={category === c ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCategory(c)}
-                  className={cn("h-9 rounded-full px-4 text-[13px] font-semibold shrink-0", category !== c && "bg-card")}
-                >
-                  {c}
-                </Button>
-              ))}
-            </div>
-            <div className="flex-1 overflow-auto px-3 pb-3 min-h-0 flex flex-col gap-4">
+            <div className="flex-1 rounded-2xl border bg-card min-h-0 overflow-hidden flex flex-col">
+              <div className="shrink-0 p-3 pb-2 flex gap-1.5 overflow-x-auto items-center">
+                {categories.map((c) => (
+                  <Button
+                    key={c}
+                    variant={category === c ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCategory(c)}
+                    className={cn("h-9 rounded-full px-4 text-[13px] font-semibold shrink-0", category !== c && "bg-card")}
+                  >
+                    {c}
+                  </Button>
+                ))}
+                <span className="flex-1 min-w-2" aria-hidden />
+                <ProductSearchTrigger />
+              </div>
+              <div className="flex-1 overflow-auto px-3 pb-3 min-h-0 flex flex-col gap-4">
               {counterBlocked ? (
                 <div className="flex-1 flex items-center justify-center p-8">
                   <div className="max-w-sm w-full rounded-2xl border bg-card p-6 text-center">
@@ -162,6 +163,7 @@ export default function Home() {
               </>
               )}
             </div>
+            </div>
           </div>
           {/* Right: cart + merged pay footer */}
           <div className="col-span-12 lg:col-span-4 flex flex-col min-h-0 overflow-hidden bg-card lg:bg-muted/20 border-t lg:border-t-0 p-3 gap-3">
@@ -179,6 +181,7 @@ export default function Home() {
       <AddCustomerDialog />
       <PosShortcutHelp />
       <HeldBillsDialog />
+      <SearchPalette />
     </>
   );
 }

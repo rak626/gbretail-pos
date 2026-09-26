@@ -267,20 +267,20 @@ export default function AddCustomerDialog() {
 
   return (
     <Dialog open={addCustomerModalOpen} onOpenChange={(o) => !o && !saving && closeAddCustomerModal()}>
-      <DialogContent className="sm:max-w-[440px] p-0 gap-0 overflow-hidden">
-        <DialogHeader className="p-5 pb-3">
-          <DialogTitle className="text-[14px] flex items-center gap-2">
+      <DialogContent className="sm:max-w-[560px] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="p-6 pb-4">
+          <DialogTitle className="text-[16px] flex items-center gap-2">
             <User className="w-4 h-4 text-primary" /> {selected ? "Customer Selected" : "Select Customer"}
           </DialogTitle>
-          <DialogDescription className="text-[11px]">
+          <DialogDescription className="text-[13px]">
             Type name to search — suggestions appear instantly. Select existing or create new.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="px-5 pb-5 space-y-3">
+        <div className="px-6 pb-6 space-y-4">
           {/* Name with autocomplete */}
-          <div className="space-y-1.5">
-            <Label htmlFor="customer-name" className="text-[11px] font-semibold">
+          <div className="space-y-2">
+            <Label htmlFor="customer-name" className="text-[13px] font-semibold">
               Name <span className="text-destructive">*</span>
             </Label>
             <div className="relative">
@@ -292,7 +292,7 @@ export default function AddCustomerDialog() {
                 onFocus={handleFocusName}
                 onKeyDown={handleSuggestKeyDown}
                 placeholder="e.g., Ramesh Kumar"
-                className="h-9 text-sm pr-8"
+                className="h-11 text-[15px] pr-8"
                 autoComplete="off"
                 disabled={saving}
                 role="combobox"
@@ -379,8 +379,8 @@ export default function AddCustomerDialog() {
           </div>
 
           {/* Phone */}
-          <div className="space-y-1">
-            <Label htmlFor="customer-phone" className="text-[11px] font-semibold">
+          <div className="space-y-2">
+            <Label htmlFor="customer-phone" className="text-[13px] font-semibold">
               Phone <span className="text-muted-foreground font-normal">(optional, searchable)</span>
             </Label>
             <Input
@@ -392,7 +392,7 @@ export default function AddCustomerDialog() {
               onKeyDown={handleSuggestKeyDown}
               placeholder="10-digit mobile number"
               inputMode="numeric"
-              className="h-9 text-sm font-mono"
+              className="h-11 text-[15px] font-mono"
               disabled={saving}
               autoComplete="off"
             />
@@ -443,11 +443,11 @@ export default function AddCustomerDialog() {
           )}
         </div>
 
-        <DialogFooter className="p-4 sm:justify-end gap-3 border-t bg-muted/20">
-          <Button variant="outline" onClick={closeAddCustomerModal} disabled={saving} className="h-9 px-6 min-w-[96px]">
+        <DialogFooter className="p-5 sm:justify-end gap-3 border-t bg-muted/20">
+          <Button variant="outline" onClick={closeAddCustomerModal} disabled={saving} className="h-11 px-6 min-w-[110px] text-sm">
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving || !name.trim()} className="h-9 px-6 min-w-[140px]">
+          <Button onClick={handleSave} disabled={saving || !name.trim()} className="h-11 px-6 min-w-[160px] text-sm">
             {saving ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" /> Saving...
