@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { User as UserIcon, Mail, Store, Monitor, ShieldCheck, CalendarDays, Power, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { roleLabel } from "@/lib/roles";
 
 export type DrawerUser = {
   id: string;
@@ -85,7 +86,7 @@ export default function UserDrawer({
             </div>
           </div>
           <div className="flex items-center gap-1.5 mt-3">
-            <Badge variant="outline" className="text-[10px]">{target?.role ?? "—"}</Badge>
+            <Badge variant="outline" className="text-[10px]">{roleLabel(target?.role)}</Badge>
             {target && (
               <Badge
                 variant={target.isActive ? "secondary" : "destructive"}
@@ -118,7 +119,7 @@ export default function UserDrawer({
             <div className="flex items-center gap-2.5">
               <ShieldCheck className="w-4 h-4 text-muted-foreground shrink-0" />
               <span className="text-muted-foreground w-16 shrink-0">Role</span>
-              <span className="font-medium">{target?.role ?? "—"}</span>
+              <span className="font-medium">{roleLabel(target?.role)}</span>
             </div>
             <div className="flex items-center gap-2.5">
               <CalendarDays className="w-4 h-4 text-muted-foreground shrink-0" />

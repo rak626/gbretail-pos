@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { formatINR } from "@/lib/utils";
+import { roleLabel } from "@/lib/roles";
 import type { AnalyticsSections } from "@/lib/api";
 import { Users } from "lucide-react";
 
@@ -50,7 +51,7 @@ export default function StaffTab({ sections, isSuper }: Props) {
                   <TableRow key={p.id}>
                     <TableCell>
                       <div className="text-xs font-semibold">{p.name}</div>
-                      <div className="text-[11px] text-muted-foreground">{p.role}</div>
+                      <div className="text-[11px] text-muted-foreground">{roleLabel(p.role)}</div>
                     </TableCell>
                     {isSuper && <TableCell className="text-xs">{p.shopName ?? "—"}</TableCell>}
                     <TableCell>{p.isActive ? <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-primary/20">Active</Badge> : <Badge variant="destructive" className="text-[10px]">Disabled</Badge>}</TableCell>

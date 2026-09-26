@@ -26,7 +26,7 @@ type CounterOpt = { id: string; name: string };
 
 const ROLE_META: Record<string, { label: string; dot: string }> = {
   STAFF: { label: "Staff", dot: "bg-sky-500" },
-  SHOP_OWNER: { label: "Owner", dot: "bg-amber-500" },
+  SHOP_OWNER: { label: "Shop Owner", dot: "bg-amber-500" },
   SUPER_ADMIN: { label: "Super Admin", dot: "bg-rose-500" },
 };
 
@@ -124,7 +124,7 @@ export default function UsersPage() {
             <CardContent className="p-6 text-center">
               <Shield className="w-10 h-10 mx-auto text-destructive mb-3" />
               <div className="font-semibold">Access Denied</div>
-              <div className="text-xs text-muted-foreground mt-1">STAFF cannot access Users. Only SUPER_ADMIN and SHOP_OWNER can manage users.</div>
+              <div className="text-xs text-muted-foreground mt-1">Staff accounts cannot access Users. Only super admins and shop owners can manage users.</div>
             </CardContent>
           </Card>
         </div>
@@ -265,7 +265,7 @@ export default function UsersPage() {
   const ROLE_FILTERS = useMemo(() => {
     const opts = [
       { value: "all", label: "All roles" },
-      { value: "SHOP_OWNER", label: "Owners" },
+      { value: "SHOP_OWNER", label: "Shop Owners" },
       { value: "STAFF", label: "Staff" },
     ];
     if (isSuper) opts.push({ value: "SUPER_ADMIN", label: "Super Admins" });

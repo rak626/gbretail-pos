@@ -88,7 +88,7 @@ export default function AdminPage() {
             <CardContent className="p-6 text-center">
               <Shield className="w-10 h-10 mx-auto text-destructive mb-3" />
               <div className="font-semibold">Access Denied</div>
-              <div className="text-xs text-muted-foreground mt-1">Only SUPER_ADMIN can access Admin panel.</div>
+              <div className="text-xs text-muted-foreground mt-1">Only super admins can access the Admin panel.</div>
             </CardContent>
           </Card>
         </div>

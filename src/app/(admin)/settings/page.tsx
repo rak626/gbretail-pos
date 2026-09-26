@@ -12,6 +12,7 @@ import { useConfirm } from "@/components/confirm-dialog";
 import { useOfflineBlock } from "@/hooks/useOfflineBlock";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import ReceiptDrawer, { type ReceiptDraft } from "@/components/settings/ReceiptDrawer";
+import { roleLabel } from "@/lib/roles";
 import { Settings, Monitor, Plus, Trash2, Store, Users, ChevronRight, Receipt, Pencil } from "lucide-react";
 
 type ShopUser = { id: string; name: string; email: string; role: string; isActive: boolean; counterId?: string | null };
@@ -212,7 +213,7 @@ export default function SettingsPage() {
         <div className="max-w-4xl mx-auto space-y-4">
           <div className="flex items-center gap-2">
             <h1 className="text-base font-semibold flex items-center gap-2"><Settings className="w-4 h-4 text-primary" /> Settings — {shop?.name ?? "Shop"}</h1>
-            <Badge variant="outline">{user.role}</Badge>
+            <Badge variant="outline">{roleLabel(user.role)}</Badge>
             <span className="text-xs text-muted-foreground hidden sm:inline">Shared inventory • staff bill on assigned counters • tracked who billed</span>
           </div>
 
@@ -222,7 +223,7 @@ export default function SettingsPage() {
             <CardHeader className="py-3 border-b"><CardTitle className="text-sm flex items-center gap-2"><Store className="w-4 h-4" /> Shop Info</CardTitle></CardHeader>
             <CardContent className="p-3 space-y-1 text-sm">
               <div><span className="text-muted-foreground">Shop:</span> <span className="font-semibold">{shop?.name ?? "—"}</span> <span className="font-mono text-xs text-muted-foreground">{shop?.code ?? shop?.id ?? user.shopId ?? "—"}</span></div>
-              <div><span className="text-muted-foreground">You:</span> {user.name} ({user.email}) — {user.role}</div>
+              <div><span className="text-muted-foreground">You:</span> {user.name} ({user.email}) — {roleLabel(user.role)}</div>
               <div className="text-xs text-muted-foreground">Counters in this shop share inventory. Staff bill on their assigned counter; orders record which counter & who billed.</div>
               {(user.role === "SHOP_OWNER" || user.role === "SUPER_ADMIN") && (
                 <div className="pt-2">
@@ -256,7 +257,7 @@ export default function SettingsPage() {
                 <dt className="text-xs text-muted-foreground self-center">Footer</dt>
                 <dd className="text-[13px] truncate" title={receipt.receiptFooter || "—"}>{receipt.receiptFooter || <span className="text-muted-foreground">—</span>}</dd>
               </dl>
-              {!canManage && <div className="text-[11px] text-muted-foreground mt-2">STAFF view — read-only. Only SHOP_OWNER can change receipt settings.</div>}
+              {!canManage && <div className="text-[11px] text-muted-foreground mt-2">Staff view — read-only. Only shop owners can change receipt settings.</div>}
             </CardContent>
           </Card>
 
@@ -273,7 +274,7 @@ export default function SettingsPage() {
               </CardAction>
             </CardHeader>
             <CardContent className="p-0">
-              {!canManage && counters.length > 0 && <div className="px-3 pt-3 text-xs text-muted-foreground">STAFF view — read-only. Only SHOP_OWNER can manage counters.</div>}
+              {!canManage && counters.length > 0 && <div className="px-3 pt-3 text-xs text-muted-foreground">Staff view — read-only. Only shop owners can manage counters.</div>}
               <div className="divide-y">
                 {counters.map((c) => {
                   const n = staffOf(c.id).length;
@@ -304,7 +305,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {!canManage && <div className="text-[11px] text-muted-foreground px-1">You are logged in as STAFF. You bill on your assigned counter — orders track who billed. User management is not available for this role.</div>}
+          {!canManage && <div className="text-[11px] text-muted-foreground px-1">You are logged in as Staff. You bill on your assigned counter — orders track who billed. User management is not available for this role.</div>}
 
           {/* Add counter modal — names are automatic (first missing number) */}
           <Dialog open={addOpen} onOpenChange={setAddOpen}>

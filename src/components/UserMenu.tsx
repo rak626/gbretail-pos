@@ -8,6 +8,7 @@ import { useConfirm } from "@/components/confirm-dialog";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { roleLabel } from "@/lib/roles";
 import { LogOut } from "lucide-react";
 
 function initials(name: string) {
@@ -52,7 +53,7 @@ export default function UserMenu() {
           <button
             type="button"
             aria-label="Account menu"
-            title={`${user.name} • ${user.role}`}
+            title={`${user.name} • ${roleLabel(user.role)}`}
             className="w-9 h-9 rounded-full bg-primary text-primary-foreground text-[13px] font-bold flex items-center justify-center shrink-0 hover:bg-primary/90 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         }
@@ -70,7 +71,7 @@ export default function UserMenu() {
           </div>
         </div>
         <div className="px-2 pb-2">
-          <Badge variant="secondary" className="h-5 text-[10px] rounded-full">{user.role}</Badge>
+          <Badge variant="secondary" className="h-5 text-[10px] rounded-full">{roleLabel(user.role)}</Badge>
         </div>
         <Separator />
         <div className="py-1">
