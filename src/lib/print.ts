@@ -41,8 +41,7 @@ function getPerUnitLabel(p: ReceiptItem): string {
 function getQtyText(p: ReceiptItem): string {
   if (p.qty) return p.qty;
   if (p.weight != null && p.weight > 0) return formatLooseQty(p.weight);
-  const q = p.quantity ?? (p.unit ? parseFloat(String(p.unit)) : NaN);
-  if (!isNaN(q as number)) return String(q);
+  if (p.quantity != null && Number.isFinite(Number(p.quantity))) return String(p.quantity);
   if (p.unit && p.unit.trim() && !p.unit.includes("₹")) return String(p.unit).trim();
   return "1";
 }

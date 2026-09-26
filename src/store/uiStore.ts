@@ -1,4 +1,7 @@
-// UI transient state — separated from cart domain for SRP and to avoid cart rerenders on modal toggles
+// DEPRECATED — UI transient state lives in cartStore (looseItemModalOpen,
+// customItemModalOpen, paymentModalOpen, ...). This store has no usages
+// (grep useUIStore -> only definition) and is kept to avoid breaking imports.
+// New code must use useCartStore. Do not add new state here.
 import { create } from "zustand";
 
 interface UIState {

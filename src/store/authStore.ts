@@ -32,13 +32,14 @@ export type Counter = { id: string; shopId: string; name: string; isActive: bool
 
 type AuthState = {
   accessToken: string | null;
+  refreshToken: string | null;
   user: AuthUser | null;
   shop: Shop | null;
   counters: Counter[];
   selectedCounterId: string | null;
   hasHydrated: boolean;
 
-  setAuth: (token: string, user: AuthUser, shop: Shop | null, counters?: Counter[]) => void;
+  setAuth: (token: string, user: AuthUser, shop: Shop | null, counters?: Counter[], refreshToken?: string | null) => void;
   setCounters: (counters: Counter[]) => void;
   setSelectedCounter: (id: string | null) => void;
   setShop: (shop: Shop | null) => void;
@@ -50,15 +51,19 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       accessToken: null,
+      refreshToken: null,
       user: null,
       shop: null,
       counters: [],
       selectedCounterId: null,
       hasHydrated: false,
 
-      setAuth: (token, user, shop, counters) =>
+      setAuth: (token, user, shop, counters, refreshToken = null) =>
         set(() => {
-          if (typeof window !== "undefined") localStorage.setItem("accessToken", token);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("accessToken", token);
+            if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
+          }
           // STAFF are bound to their assigned counter — ignore any persisted
           // or login-time choice so the header can never drift counters.
           const selectedCounterId =
@@ -69,6 +74,7 @@ export const useAuthStore = create<AuthState>()(
                 : null;
           return {
             accessToken: token,
+            refreshToken: refreshToken ?? null,
             user,
             shop: shop ?? (user.shop ?? null),
             counters: counters ?? [],
@@ -84,7 +90,7 @@ export const useAuthStore = create<AuthState>()(
             localStorage.removeItem("accessToken");
             localStorage.removeItem("refreshToken");
           }
-          return { accessToken: null, user: null, shop: null, counters: [], selectedCounterId: null };
+          return { accessToken: null, refreshToken: null, user: null, shop: null, counters: [], selectedCounterId: null };
         }),
       setHasHydrated: (v) => set({ hasHydrated: v }),
     }),
@@ -96,11 +102,13 @@ export const useAuthStore = create<AuthState>()(
         counters: s.counters,
         selectedCounterId: s.selectedCounterId,
         accessToken: s.accessToken,
+        refreshToken: s.refreshToken,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
-        if (state?.accessToken && typeof window !== "undefined") {
-          localStorage.setItem("accessToken", state.accessToken);
+        if (typeof window !== "undefined") {
+          if (state?.accessToken) localStorage.setItem("accessToken", state.accessToken);
+          if (state?.refreshToken) localStorage.setItem("refreshToken", state.refreshToken);
         }
       },
     }

@@ -54,6 +54,8 @@ export const CURRENCY = {
 } as const;
 
 export const SHORTCUTS = {
+  // DEPRECATED — use src/config/shortcuts.config.ts (KeyS/KeyB/Shift+...) which is
+  // the only one wired to useKeyboardShortcuts. Kept for reference, do not use.
   FOCUS_SEARCH: "F1",
   SCAN_BARCODE: "F2",
   LOOSE_ITEM: "F3",

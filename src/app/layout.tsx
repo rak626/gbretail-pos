@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Geist, IBM_Plex_Sans, Source_Sans_3 } from "next/font/google";
+import { Inter, IBM_Plex_Sans, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";

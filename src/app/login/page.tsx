@@ -94,7 +94,7 @@ export default function LoginPage() {
         counterList = [];
       }
 
-      setAuth(res.accessToken, user, shop, counterList as any);
+      setAuth(res.accessToken, user, shop, counterList as any, (res as any).refreshToken ?? null);
 
       const assignedName = (res as any).counter?.name ?? user.counter?.name;
       setInfo(

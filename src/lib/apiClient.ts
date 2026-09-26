@@ -3,6 +3,10 @@
 
 export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
+if (typeof window !== "undefined" && !process.env.NEXT_PUBLIC_API_URL) {
+  console.warn("[apiClient] NEXT_PUBLIC_API_URL is not set — API calls will use relative paths and fail. Set it to http://localhost:4000 (dev) or your backend URL.");
+}
+
 export class ApiError extends Error {
   status: number;
   code?: string;
@@ -39,11 +43,21 @@ export async function handleResponse<T>(res: Response): Promise<T> {
 
 export type RequestOpts = { signal?: AbortSignal; headers?: Record<string, string> };
 
-// Token helpers — client side only
+// Token helpers — client side only. Both tokens persist in localStorage as
+// fallback for cross-origin refresh (cookies are same-site but may be blocked).
 function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
   try {
     return localStorage.getItem("accessToken");
+  } catch {
+    return null;
+  }
+}
+
+function getRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem("refreshToken");
   } catch {
     return null;
   }
@@ -66,34 +80,36 @@ function qs(params: Record<string, string | number | undefined | null>): string 
 }
 
 async function fetchWithAuth(url: string, init: RequestInit): Promise<Response> {
-  // include cookies for refresh flow
+  // include cookies for refresh flow (same-site localhost shares cookies across ports)
   init.credentials = "include";
   init.headers = buildHeaders(init.headers as Record<string, string>);
   let res = await fetch(url, init);
-  // on 401, try refresh once
-  if (res.status === 401 && !init.headers) {
-    // already tried
-  }
   if (res.status === 401) {
     const path = new URL(url, typeof window !== "undefined" ? window.location.origin : "http://localhost").pathname;
     // don't infinite loop on auth endpoints
     if (!path.includes("/api/auth/")) {
       try {
+        const storedRefresh = getRefreshToken();
         const refreshRes = await fetch(`${API_BASE}/api/auth/refresh`, {
           method: "POST",
           credentials: "include",
           headers: buildHeaders(),
+          // Send stored refreshToken in body as fallback when cookies are
+          // unavailable cross-origin; backend accepts body.refreshToken OR cookie.
+          body: storedRefresh ? JSON.stringify({ refreshToken: storedRefresh }) : undefined,
         });
         if (refreshRes.ok) {
           const data = await refreshRes.json().catch(() => ({}));
           const newToken = (data as any).accessToken;
+          const newRefresh = (data as any).refreshToken;
           if (newToken && typeof window !== "undefined") {
             // Single token truth lives in the auth store — write through so a
             // later reload rehydrates the FRESH token, not the stale persisted one.
             localStorage.setItem("accessToken", newToken);
+            if (newRefresh) localStorage.setItem("refreshToken", newRefresh);
             try {
               const mod = await import("@/store/authStore");
-              mod.useAuthStore.setState({ accessToken: newToken });
+              mod.useAuthStore.setState({ accessToken: newToken, ...(newRefresh ? { refreshToken: newRefresh } : {}) });
             } catch {
               // store unavailable (tests) — localStorage copy still works
             }

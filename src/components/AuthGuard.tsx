@@ -53,11 +53,12 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         const shop = (data as any).shop ?? null;
         const counters = (data as any).counters ?? [];
         const newToken = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+        const storedRefresh = typeof window !== "undefined" ? localStorage.getItem("refreshToken") : null;
         // Only update auth if user actually changed or missing, to avoid loop
         const state = useAuthStore.getState();
         const existingUserId = state.user?.id;
         if (!existingUserId || existingUserId !== u.id) {
-          state.setAuth(newToken || token || "", u, shop, counters);
+          state.setAuth(newToken || token || "", u, shop, counters, storedRefresh ?? state.refreshToken ?? null);
         } else {
           // Same user: merge the FRESH profile (role, canManageInventory, counter,
           // shop assignment) so revoked grants apply without a reload.
@@ -109,6 +110,23 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("focus", onFocus);
   }, [hasHydrated, pathname]);
 
+  // Role-based bounces must run as effects, not during render (React anti-pattern).
+  const STAFF_BLOCKED = ["/customers", "/analytics", "/settings", "/admin", "/users"];
+  const SUPER_BLOCKED = ["/orders", "/inventory"];
+  const staffDenied =
+    user?.role === "STAFF" &&
+    (STAFF_BLOCKED.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ||
+      ((pathname === "/inventory" || pathname.startsWith("/inventory/")) && !(user as any)?.canManageInventory));
+  const superDenied =
+    user?.role === "SUPER_ADMIN" &&
+    (pathname === "/" || SUPER_BLOCKED.some((p) => pathname === p || pathname.startsWith(`${p}/`)));
+
+  useEffect(() => {
+    if (!hasHydrated || checking || pathname === "/login" || !user) return;
+    if (staffDenied) router.replace("/");
+    else if (superDenied) router.replace("/admin");
+  }, [hasHydrated, checking, pathname, user, staffDenied, superDenied, router]);
+
   if (pathname === "/login") return <>{children}</>;
 
   if (!hasHydrated || checking) {
@@ -124,27 +142,12 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   // STAFF is shop floor only: billing/orders/ledger always, inventory only when the
   // owner granted it. Bounce everything else to /
-  const STAFF_BLOCKED = ["/customers", "/analytics", "/settings", "/admin", "/users"];
-  if (user.role === "STAFF") {
-    const staffDenied =
-      STAFF_BLOCKED.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ||
-      ((pathname === "/inventory" || pathname.startsWith("/inventory/")) && !(user as any)?.canManageInventory);
-    if (staffDenied) {
-      router.replace("/");
-      return null;
-    }
-    return <>{children}</>;
-  }
+  if (staffDenied) return null;
 
   // SUPER_ADMIN is platform-level with no shop context: billing, orders and
   // inventory are owner & staff only. Ledger, Customers, Analytics,
   // Settings, Admin, Users stay accessible. Bounce the rest to /admin.
-  const SUPER_BLOCKED = ["/orders", "/inventory"];
-  const superDenied = pathname === "/" || SUPER_BLOCKED.some((p) => pathname === p || pathname.startsWith(`${p}/`));
-  if (user.role === "SUPER_ADMIN" && superDenied) {
-    router.replace("/admin");
-    return null;
-  }
+  if (superDenied) return null;
 
   return <>{children}</>;
 }

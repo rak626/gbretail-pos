@@ -5,8 +5,6 @@ import { SHORTCUTS, findShortcut, BLOCKED_KEYS } from "@/config/shortcuts.config
 import { useCartStore } from "@/store/cartStore";
 
 export function useKeyboardShortcuts() {
-  const store = useCartStore();
-
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -22,6 +20,8 @@ export function useKeyboardShortcuts() {
 
       e.preventDefault();
 
+      // Use fresh state on every keypress — no stale closure over store.
+      const store = useCartStore.getState();
       switch (shortcut.label) {
         case "Search Focus":
           window.dispatchEvent(new CustomEvent("focus-search"));
@@ -36,28 +36,23 @@ export function useKeyboardShortcuts() {
           store.holdOrder();
           break;
         case "Add Discount":
-          store.applyDiscount(0);
+          // Focus discount input instead of no-op applyDiscount(0).
+          window.dispatchEvent(new CustomEvent("focus-discount"));
           break;
         case "Custom Item":
           store.openCustomModal();
           break;
         case "UPI":
-          store.openPaymentModal();
-          break;
         case "Khata Lookup":
-          store.openPaymentModal();
-          break;
         case "Print":
+        case "Cash":
+        case "Khata":
+          // Payment modal lets user pick final method; hint it via event detail.
+          window.dispatchEvent(new CustomEvent("open-payment", { detail: shortcut.label }));
           store.openPaymentModal();
           break;
         case "Refresh":
           window.location.reload();
-          break;
-        case "Cash":
-          store.openPaymentModal();
-          break;
-        case "Khata":
-          store.openPaymentModal();
           break;
       }
     },
