@@ -15,21 +15,24 @@ export async function fetchProducts(
   return data.products;
 }
 
+export type ProductStockFilter = "all" | "in" | "low" | "out";
+export type ProductSortBy = "name" | "price" | "stock" | "category" | "recent";
+
 /** Paged fetch (for inventory pagination + full catalog sync). */
 export async function fetchProductsPaged(
-  params?: { search?: string; category?: string; limit?: number; page?: number },
+  params?: { search?: string; category?: string; limit?: number; page?: number; stock?: ProductStockFilter; sortBy?: ProductSortBy; sortOrder?: "asc" | "desc" },
   opts?: { signal?: AbortSignal }
 ) {
   return apiClient.get<{ products: Product[]; total: number; page: number; limit: number; source?: string }>(
     "/api/products",
-    { search: params?.search, category: params?.category, limit: params?.limit, page: params?.page },
+    { search: params?.search, category: params?.category, limit: params?.limit, page: params?.page, stock: params?.stock && params.stock !== "all" ? params.stock : undefined, sortBy: params?.sortBy, sortOrder: params?.sortOrder },
     opts
   );
 }
 
 /** Shop-wide product KPIs + distinct categories (never paginated). */
 export async function fetchProductsMeta(opts?: { signal?: AbortSignal }) {
-  return apiClient.get<{ total: number; low: number; out: number; categories: string[] }>("/api/products/meta", undefined, opts);
+  return apiClient.get<{ total: number; low: number; out: number; categories: string[]; stockValueCost?: number; stockValueSell?: number }>("/api/products/meta", undefined, opts);
 }
 
 export async function createProduct(payload: Record<string, unknown>) {

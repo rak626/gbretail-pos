@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import { useSidebarStore } from "@/store/sidebarStore";
-import { useAuthStore } from "@/store/authStore";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -12,6 +11,7 @@ import { ShoppingCart, Clock3, Menu, PanelLeftClose, PanelLeftOpen } from "lucid
 import { useOnlineStore, OnlineDot } from "@/store/onlineStore";
 import UserMenu from "@/components/UserMenu";
 import CounterPicker from "@/components/CounterPicker";
+import ShopBadge from "@/components/ShopBadge";
 
 export default function TopBar() {
   const [time, setTime] = useState("");
@@ -22,7 +22,7 @@ export default function TopBar() {
   const startOnline = useOnlineStore((s) => s.start);
   const stopOnline = useOnlineStore((s) => s.stop);
   const { collapsed, toggleCollapsed, toggleMobile } = useSidebarStore();
-  const shop = useAuthStore((s) => s.shop);
+
 
   useEffect(() => {
     setTime(new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }));
@@ -63,7 +63,7 @@ export default function TopBar() {
 
   return (
     <header className="h-14 shrink-0 bg-card border-b flex items-center justify-between px-3 gap-3 z-30">
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-3 min-w-0">
         {/* Mobile hamburger */}
         <Button
           variant="ghost"
@@ -85,19 +85,17 @@ export default function TopBar() {
         >
           {collapsed ? <PanelLeftOpen className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
         </Button>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 shrink-0">
           <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
             <ShoppingCart className="w-5 h-5 text-primary-foreground" />
           </div>
-          <div className="leading-tight hidden sm:block">
+          <div className="leading-tight shrink-0">
             <div className="font-bold tracking-tight text-[15px] leading-none">GB RETAIL</div>
-            {shop && <div className="text-[11px] text-muted-foreground font-medium truncate max-w-[160px]">{shop.name}</div>}
-          </div>
-          <div className="leading-tight sm:hidden">
-            <div className="font-bold tracking-tight text-[14px] leading-none">GB RETAIL</div>
           </div>
         </div>
-        <CounterPicker className="hidden lg:flex" />
+        <span className="h-6 w-px bg-border hidden sm:block shrink-0" aria-hidden />
+        <ShopBadge className="ml-0.5" />
+        <CounterPicker className="hidden lg:flex shrink-0" />
       </div>
 
       <div className="flex items-center gap-2 shrink-0">

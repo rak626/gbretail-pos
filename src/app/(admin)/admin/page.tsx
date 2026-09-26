@@ -3,19 +3,19 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import ShopDialog from "@/components/admin/ShopDialog";
 import { useAuthStore } from "@/store/authStore";
 import { apiClient } from "@/lib/apiClient";
 import { useConfirm } from "@/components/confirm-dialog";
 import { useOfflineBlock } from "@/hooks/useOfflineBlock";
-import { Shield, Store, Plus, Monitor, Trash2, RefreshCw, Power, Users, Package, Receipt, UserX } from "lucide-react";
+import { Shield, Store, Plus, Pencil, Monitor, Trash2, RefreshCw, Power, Users, Package, Receipt, UserX } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ShopOwner = { id: string; name: string; email: string; isActive: boolean } | null;
 type ShopRow = {
   id: string;
+  code?: string | null;
   name: string;
   address?: string | null;
   isActive: boolean;
@@ -41,8 +41,13 @@ export default function AdminPage() {
   const { confirm, notify } = useConfirm();
   const { offline, block, reason } = useOfflineBlock(notify);
   const [shops, setShops] = useState<ShopRow[]>([]);
-  const [shopName, setShopName] = useState("");
-  const [shopAddress, setShopAddress] = useState("");
+  // Shop add/rename modal state (name + address both editable)
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogEditing, setDialogEditing] = useState<ShopRow | null>(null);
+  const [dialogName, setDialogName] = useState("");
+  const [dialogAddress, setDialogAddress] = useState("");
+  const [dialogError, setDialogError] = useState("");
+  const [dialogSaving, setDialogSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -91,20 +96,45 @@ export default function AdminPage() {
     );
   }
 
-  const handleCreateShop = async (e?: React.FormEvent) => {
-    e?.preventDefault();
+  const openAddShop = () => {
+    setDialogEditing(null);
+    setDialogName("");
+    setDialogAddress("");
+    setDialogError("");
+    setDialogOpen(true);
+  };
+
+  const openEditShop = (s: ShopRow) => {
+    setDialogEditing(s);
+    setDialogName(s.name);
+    setDialogAddress(s.address ?? "");
+    setDialogError("");
+    setDialogOpen(true);
+  };
+
+  const handleSaveShop = async () => {
     if (await block()) return;
-    if (!shopName.trim()) return setError("Shop name required");
-    setLoading(true);
+    const name = dialogName.trim();
+    if (!name) return setDialogError("Shop name required");
+    if (name.length > 100) return setDialogError("Name too long (max 100)");
+    setDialogError("");
+    setDialogSaving(true);
     try {
-      await apiClient.post("/api/shops", { name: shopName.trim(), address: shopAddress.trim() || null });
-      setShopName("");
-      setShopAddress("");
+      const payload = { name, address: dialogAddress.trim() || null };
+      if (dialogEditing) {
+        await apiClient.patch(`/api/shops/${dialogEditing.id}`, payload);
+      } else {
+        await apiClient.post("/api/shops", payload);
+      }
+      setDialogOpen(false);
+      setDialogEditing(null);
+      setDialogName("");
+      setDialogAddress("");
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed");
+      setDialogError(e instanceof Error ? e.message : "Failed");
     } finally {
-      setLoading(false);
+      setDialogSaving(false);
     }
   };
 
@@ -153,30 +183,16 @@ export default function AdminPage() {
         <div className="max-w-6xl mx-auto space-y-4">
           <div className="flex items-center justify-between">
             <h1 className="text-base font-semibold flex items-center gap-2"><Shield className="w-4 h-4 text-primary" /> Admin — Shops</h1>
-            <Button variant="outline" size="sm" onClick={load} disabled={loading}><RefreshCw className="w-4 h-4" /> Refresh</Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={load} disabled={loading}><RefreshCw className="w-4 h-4" /> Refresh</Button>
+              <Button size="sm" onClick={openAddShop} disabled={offline} title={offline ? reason : "Create a new shop"}><Plus className="w-4 h-4" /> Add shop</Button>
+            </div>
           </div>
 
           {error && <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">{error}</div>}
 
           <Card>
-            <CardHeader className="py-3 border-b"><CardTitle className="text-sm flex items-center gap-2"><Store className="w-4 h-4" /> New shop</CardTitle></CardHeader>
-            <CardContent className="p-3">
-              <form onSubmit={handleCreateShop} className="grid sm:grid-cols-[1fr_1fr_auto] gap-2 items-end">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Shop name *</Label>
-                  <Input value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="e.g., Main Shop" className="h-9 text-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Address</Label>
-                  <Input value={shopAddress} onChange={(e) => setShopAddress(e.target.value)} placeholder="Main Bazaar" className="h-9 text-sm" />
-                </div>
-                <Button type="submit" disabled={loading || offline} title={offline ? reason : undefined} className="h-9 px-5"><Plus className="w-4 h-4" /> Add shop</Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="py-3 border-b flex-row items-center justify-between">
+            <CardHeader className="py-2 border-b flex items-center gap-2">
               <CardTitle className="text-sm">Shops</CardTitle>
               <Badge variant="outline">{loading ? "loading..." : `${shops.length} shop${shops.length === 1 ? "" : "s"}`}</Badge>
             </CardHeader>
@@ -192,6 +208,7 @@ export default function AdminPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <Store className="w-4 h-4 text-primary shrink-0" />
                             <span className="font-bold text-[15px] tracking-tight truncate">{s.name}</span>
+                            {s.code && <Badge variant="outline" className="text-[10px] font-mono">{s.code}</Badge>}
                             <Badge variant={s.isActive ? "default" : "secondary"} className={cn("text-[10px]", s.isActive && "bg-primary")}>
                               {s.isActive ? "Active" : "Disabled"}
                             </Badge>
@@ -200,6 +217,9 @@ export default function AdminPage() {
                           {s.address && <div className="text-xs text-muted-foreground mt-1 truncate">{s.address}</div>}
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
+                          <Button variant="outline" size="sm" onClick={() => openEditShop(s)} disabled={offline} className="h-8 w-8 p-0" title={offline ? reason : "Rename shop (edit name & address)"} aria-label={`Rename ${s.name}`}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -238,12 +258,26 @@ export default function AdminPage() {
                     </div>
                   );
                 })}
-                {shops.length === 0 && !loading && <div className="p-6 text-center text-sm text-muted-foreground">No shops — create one above</div>}
+                {shops.length === 0 && !loading && <div className="p-6 text-center text-sm text-muted-foreground">No shops yet — click Add shop above</div>}
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
+      <ShopDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editingId={dialogEditing?.id ?? null}
+        name={dialogName}
+        setName={setDialogName}
+        address={dialogAddress}
+        setAddress={setDialogAddress}
+        error={dialogError}
+        saving={dialogSaving}
+        offline={offline}
+        offlineReason={reason}
+        onSave={() => void handleSaveShop()}
+      />
     </>
   );
 }

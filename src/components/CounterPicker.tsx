@@ -28,7 +28,7 @@ export default function CounterPicker({ className = "" }: { className?: string }
       <span
         title={assignedName ? `Billing on ${assignedName} (assigned by owner)` : "No counter assigned — contact owner"}
         className={cn(
-          "h-9 inline-flex items-center gap-1.5 rounded-full border bg-muted/60 px-3",
+          "h-9 inline-flex items-center gap-1.5 rounded-full border bg-muted/60 px-3 shrink-0",
           "text-[13px] font-semibold whitespace-nowrap",
           className
         )}
@@ -48,7 +48,7 @@ export default function CounterPicker({ className = "" }: { className?: string }
       <SelectTrigger
         title="Switch counter"
         className={cn(
-          "h-9 min-w-[128px] max-w-[190px] rounded-full gap-1.5 border bg-muted/60 px-3",
+          "h-9 min-w-[128px] max-w-[190px] rounded-full gap-1.5 border bg-muted/60 px-3 shrink-0",
           "text-[13px] font-semibold hover:bg-muted transition-colors",
           className
         )}

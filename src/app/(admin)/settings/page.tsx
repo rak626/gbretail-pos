@@ -215,7 +215,7 @@ export default function SettingsPage() {
           <Card>
             <CardHeader className="py-3 border-b"><CardTitle className="text-sm flex items-center gap-2"><Store className="w-4 h-4" /> Shop Info</CardTitle></CardHeader>
             <CardContent className="p-3 space-y-1 text-sm">
-              <div><span className="text-muted-foreground">Shop:</span> <span className="font-semibold">{shop?.name ?? "—"}</span> <span className="font-mono text-xs text-muted-foreground">{shop?.id ?? user.shopId ?? "—"}</span></div>
+              <div><span className="text-muted-foreground">Shop:</span> <span className="font-semibold">{shop?.name ?? "—"}</span> <span className="font-mono text-xs text-muted-foreground">{shop?.code ?? shop?.id ?? user.shopId ?? "—"}</span></div>
               <div><span className="text-muted-foreground">You:</span> {user.name} ({user.email}) — {user.role}</div>
               <div className="text-xs text-muted-foreground">Counters in this shop share inventory. Staff bill on their assigned counter; orders record which counter & who billed.</div>
               {(user.role === "SHOP_OWNER" || user.role === "SUPER_ADMIN") && (

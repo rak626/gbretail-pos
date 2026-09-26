@@ -18,6 +18,8 @@ export type AuthUser = {
 
 export type Shop = {
   id: string;
+  /** Human shop ID, GB-SHOP-1001… — shown in header/admin, immutable. */
+  code?: string | null;
   name: string;
   address?: string | null;
   receiptName?: string | null;
