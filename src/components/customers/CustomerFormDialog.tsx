@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createCustomer, updateCustomer } from "@/lib/api";
 import type { Customer } from "@/db/database";
+import { useOnlineStore } from "@/store/onlineStore";
+import { OFFLINE_REASON } from "@/hooks/useOfflineBlock";
 import { Loader2, User, Phone, Mail, MapPin, StickyNote, Wallet } from "lucide-react";
 
 type Props = {
@@ -27,6 +29,7 @@ export default function CustomerFormDialog({ open, onOpenChange, customer, onSav
   const [creditLimit, setCreditLimit] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const offline = useOnlineStore((s) => !s.online);
 
   useEffect(() => {
     if (open) {
@@ -51,6 +54,7 @@ export default function CustomerFormDialog({ open, onOpenChange, customer, onSav
   }, [open, customer]);
 
   const handleSave = async () => {
+    if (offline) return setError("You're offline — reconnect to save changes.");
     setError("");
     const trimmedName = name.trim();
     const trimmedPhone = phone.trim().replace(/\D/g, "").slice(0, 10);
@@ -145,7 +149,7 @@ export default function CustomerFormDialog({ open, onOpenChange, customer, onSav
 
         <DialogFooter className="p-4 shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving} className="h-9">Cancel</Button>
-          <Button onClick={handleSave} disabled={saving || !name.trim()} className="h-9 min-w-[130px]">
+          <Button onClick={handleSave} disabled={saving || offline || !name.trim()} title={offline ? OFFLINE_REASON : undefined} className="h-9 min-w-[130px]">
             {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : isEdit ? "Save Changes" : "Add Customer"}
           </Button>
         </DialogFooter>

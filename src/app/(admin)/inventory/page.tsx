@@ -16,6 +16,7 @@ import { isLowStock, isOutOfStock, lowStockThresholdOf } from "@/lib/stock";
 import { fetchProducts, createProduct, updateProduct, deleteProduct } from "@/lib/api";
 import { fetchMe } from "@/lib/authApi";
 import { useConfirm } from "@/components/confirm-dialog";
+import { useOfflineBlock } from "@/hooks/useOfflineBlock";
 import { selectCatalogCategories } from "@/store/catalogStore";
 import { useAuthStore } from "@/store/authStore";
 import type { Product } from "@/db/database";
@@ -61,6 +62,7 @@ export default function InventoryPage() {
   const abortRef = useRef<AbortController | null>(null);
   const actor = useAuthStore((s) => s.user);
   const { confirm, notify } = useConfirm();
+  const { offline, block, reason } = useOfflineBlock(notify);
   const isStaff = actor?.role === "STAFF";
   // STAFF needs an explicit owner grant; refresh from server on mount so an
   // owner grant/revoke applies without forcing staff to re-login.
@@ -239,6 +241,7 @@ export default function InventoryPage() {
   };
 
   const handleSave = async () => {
+    if (await block()) return;
     setFormError("");
     if (!form.name.trim()) return setFormError("Product name is required");
     if (!form.category) return setFormError("Category is required");
@@ -299,6 +302,7 @@ export default function InventoryPage() {
 
   const handleRestock = async () => {
     if (!restockProduct) return;
+    if (await block()) return;
     setRestockError("");
     const add = Number(restockQty);
     if (!restockQty || isNaN(add) || add <= 0) return setRestockError("Enter valid quantity to add (e.g., 40)");
@@ -334,6 +338,7 @@ export default function InventoryPage() {
   };
 
   const handleDelete = async (p: Product) => {
+    if (await block()) return;
     const ok = await confirm({
       title: `Delete "${p.name}"?`,
       description: "This cannot be undone. Past orders keep their history.",
@@ -350,6 +355,7 @@ export default function InventoryPage() {
   };
 
   const adjustStock = async (p: Product, delta: number) => {
+    if (await block()) return;
     const newQty = Math.max(0, (p.stockQuantity ?? 0) + delta);
     try {
       await updateProduct(p.id, { stockQuantity: newQty });
@@ -442,7 +448,7 @@ export default function InventoryPage() {
                   inputRef={searchRef}
                   variant="plain"
                 />
-                <Button onClick={openAdd} className="h-10 px-5 bg-primary hover:bg-primary/90 text-white dark:bg-primary shrink-0">
+                <Button onClick={openAdd} disabled={offline} title={offline ? reason : undefined} className="h-10 px-5 bg-primary hover:bg-primary/90 text-white dark:bg-primary shrink-0">
                   <Plus className="w-4 h-4" /> Add Product
                 </Button>
               </div>
@@ -486,7 +492,7 @@ export default function InventoryPage() {
                 <div className="py-16 text-center">
                   <div className="text-sm font-medium">No products found</div>
                   <div className="text-xs text-muted-foreground mt-1">Try a different search or add a new product</div>
-                  <Button onClick={openAdd} className="mt-4" size="sm"><Plus className="w-4 h-4" /> Add Product</Button>
+                  <Button onClick={openAdd} disabled={offline} title={offline ? reason : undefined} className="mt-4" size="sm"><Plus className="w-4 h-4" /> Add Product</Button>
                 </div>
               ) : (
                 <div className="overflow-auto flex-1 min-h-[380px] max-h-[68vh] lg:max-h-[72vh]">
@@ -528,7 +534,7 @@ export default function InventoryPage() {
                             </TableCell>
                             <TableCell className="text-center">
                               <div className="flex items-center justify-center gap-1.5">
-                                <Button variant="outline" size="icon-xs" className="h-8 w-8" onClick={() => adjustStock(p, -1)} disabled={stock <= 0}>
+                                <Button variant="outline" size="icon-xs" className="h-8 w-8" onClick={() => adjustStock(p, -1)} disabled={stock <= 0 || offline} title={offline ? reason : undefined}>
                                   <Minus className="w-3.5 h-3.5" />
                                 </Button>
                                 <Badge
@@ -537,7 +543,7 @@ export default function InventoryPage() {
                                 >
                                   {stock}
                                 </Badge>
-                                <Button variant="outline" size="icon-xs" className="h-8 w-8" onClick={() => adjustStock(p, 1)}>
+                                <Button variant="outline" size="icon-xs" className="h-8 w-8" onClick={() => adjustStock(p, 1)} disabled={offline} title={offline ? reason : undefined}>
                                   <Plus className="w-3.5 h-3.5" />
                                 </Button>
                               </div>
@@ -555,14 +561,15 @@ export default function InventoryPage() {
                                   size="icon-xs"
                                   className="h-8 w-8 bg-primary/5 border-primary/20 text-primary hover:bg-green-100 dark:bg-primary/5 dark:border-primary/20 dark:text-primary"
                                   onClick={() => openRestock(p)}
-                                  title="Restock — add quantity & update cost/price"
+                                  disabled={offline}
+                                  title={offline ? reason : "Restock — add quantity & update cost/price"}
                                 >
                                   <PackagePlus className="w-4 h-4" />
                                 </Button>
-                                <Button variant="outline" size="icon-xs" className="h-8 w-8" onClick={() => openEdit(p)} title="Edit product">
+                                <Button variant="outline" size="icon-xs" className="h-8 w-8" onClick={() => openEdit(p)} disabled={offline} title={offline ? reason : "Edit product"}>
                                   <Pencil className="w-4 h-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon-xs" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(p)} title="Delete">
+                                <Button variant="ghost" size="icon-xs" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(p)} disabled={offline} title={offline ? reason : "Delete"}>
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
                               </div>
@@ -689,7 +696,7 @@ export default function InventoryPage() {
           </div>
           <DialogFooter className="p-4 gap-3 sm:justify-end border-t shrink-0">
             <Button variant="outline" onClick={() => setOpen(false)} disabled={saving} className="h-11 px-6 min-w-[110px] text-sm">Cancel</Button>
-            <Button onClick={handleSave} disabled={saving} className="h-11 px-6 min-w-[150px] text-sm">
+            <Button onClick={handleSave} disabled={saving || offline} title={offline ? reason : undefined} className="h-11 px-6 min-w-[150px] text-sm">
               {saving ? (editing ? "Saving..." : "Adding...") : editing ? "Done Editing" : "Add Product"}
             </Button>
           </DialogFooter>
@@ -782,7 +789,7 @@ export default function InventoryPage() {
           )}
           <DialogFooter className="p-4 gap-3 sm:justify-end">
             <Button variant="outline" onClick={() => setRestockOpen(false)} disabled={restockSaving} className="h-9 px-6 min-w-[96px]">Cancel</Button>
-            <Button onClick={handleRestock} disabled={restockSaving} className="bg-primary hover:bg-primary/90 text-white h-9 px-6 min-w-[130px]">
+            <Button onClick={handleRestock} disabled={restockSaving || offline} title={offline ? reason : undefined} className="bg-primary hover:bg-primary/90 text-white h-9 px-6 min-w-[130px]">
               {restockSaving ? "Restocking..." : `Add ${restockQty ? Number(restockQty) : ""} to Stock`}
             </Button>
           </DialogFooter>

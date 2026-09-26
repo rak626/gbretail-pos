@@ -27,12 +27,17 @@ export async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const msg = (data.error as string) || `HTTP ${res.status}`;
     const code = (data.code as string) || undefined;
+    // Hard auth failures: single source broadcasts, AuthGuard signs out centrally.
+    // (Direct import would cycle: apiClient -> authStore -> authApi -> apiClient.)
+    if (typeof window !== "undefined" && (code === "ACCOUNT_DISABLED" || code === "SHOP_DISABLED" || code === "SESSION_REVOKED")) {
+      window.dispatchEvent(new CustomEvent<string>("auth:revoked", { detail: code }));
+    }
     throw new ApiError(msg, res.status, code);
   }
   return data as T;
 }
 
-export type RequestOpts = { signal?: AbortSignal };
+export type RequestOpts = { signal?: AbortSignal; headers?: Record<string, string> };
 
 // Token helpers — client side only
 function getAuthToken(): string | null {
@@ -83,7 +88,15 @@ async function fetchWithAuth(url: string, init: RequestInit): Promise<Response> 
           const data = await refreshRes.json().catch(() => ({}));
           const newToken = (data as any).accessToken;
           if (newToken && typeof window !== "undefined") {
+            // Single token truth lives in the auth store — write through so a
+            // later reload rehydrates the FRESH token, not the stale persisted one.
             localStorage.setItem("accessToken", newToken);
+            try {
+              const mod = await import("@/store/authStore");
+              mod.useAuthStore.setState({ accessToken: newToken });
+            } catch {
+              // store unavailable (tests) — localStorage copy still works
+            }
           }
           // retry original request with new token
           init.headers = buildHeaders(init.headers as Record<string, string>);
@@ -100,13 +113,14 @@ async function fetchWithAuth(url: string, init: RequestInit): Promise<Response> 
 export const apiClient = {
   get<T>(path: string, params?: Record<string, string | number | undefined | null>, opts?: RequestOpts): Promise<T> {
     const url = `${API_BASE}${path}${params ? qs(params) : ""}`;
-    return fetchWithAuth(url, { signal: opts?.signal, method: "GET" } as RequestInit).then(handleResponse<T>);
+    return fetchWithAuth(url, { signal: opts?.signal, headers: opts?.headers, method: "GET" } as RequestInit).then(handleResponse<T>);
   },
   post<T>(path: string, body?: unknown, opts?: RequestOpts): Promise<T> {
     return fetchWithAuth(`${API_BASE}${path}`, {
       method: "POST",
       body: body ? JSON.stringify(body) : undefined,
       signal: opts?.signal,
+      headers: opts?.headers,
     } as RequestInit).then(handleResponse<T>);
   },
   patch<T>(path: string, body?: unknown, opts?: RequestOpts): Promise<T> {
@@ -114,10 +128,11 @@ export const apiClient = {
       method: "PATCH",
       body: body ? JSON.stringify(body) : undefined,
       signal: opts?.signal,
+      headers: opts?.headers,
     } as RequestInit).then(handleResponse<T>);
   },
   delete<T>(path: string, opts?: RequestOpts): Promise<T> {
-    return fetchWithAuth(`${API_BASE}${path}`, { method: "DELETE", signal: opts?.signal } as RequestInit).then(handleResponse<T>);
+    return fetchWithAuth(`${API_BASE}${path}`, { method: "DELETE", signal: opts?.signal, headers: opts?.headers } as RequestInit).then(handleResponse<T>);
   },
   exportUrl(path: string, params?: Record<string, string | number | undefined | null>): string {
     // export needs auth via header? For now return URL — caller can fetch with auth or window.open (cookie)

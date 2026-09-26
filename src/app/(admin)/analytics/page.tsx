@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fetchAnalyticsSummary, fetchAnalyticsSections, getAnalyticsExportUrl, type AnalyticsSections } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
+import { useOnlineStore } from "@/store/onlineStore";
+import { OFFLINE_REASON } from "@/hooks/useOfflineBlock";
 import { BarChart3, Download, Package, Store, Users, UserPlus, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ProductsTab from "@/components/analytics/ProductsTab";
@@ -46,6 +48,7 @@ const TABS: { value: Tab; label: string; icon: React.ElementType }[] = [
 
 export default function AnalyticsPage() {
   const role = useAuthStore((s) => s.user?.role);
+  const offline = useOnlineStore((s) => !s.online);
   const isSuper = role === "SUPER_ADMIN";
   const [preset, setPreset] = useState<Preset>("7d");
   const [granularity, setGranularity] = useState<string>("auto");
@@ -119,7 +122,7 @@ export default function AnalyticsPage() {
               {data?.range && <Badge variant="secondary" className="hidden sm:flex rounded-full">{data.range.label} • {data.range.granularity}</Badge>}
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => window.open(exportUrl, "_blank")}><Download className="w-4 h-4" /> CSV</Button>
+              <Button variant="outline" size="sm" onClick={() => window.open(exportUrl, "_blank")} disabled={offline} title={offline ? OFFLINE_REASON : undefined}><Download className="w-4 h-4" /> CSV</Button>
               <Button variant="outline" size="sm" onClick={load} disabled={loading}>{loading ? "Loading..." : "Refresh"}</Button>
             </div>
           </div>

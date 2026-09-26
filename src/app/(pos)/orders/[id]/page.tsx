@@ -51,7 +51,12 @@ export default function OrderDetailPage() {
       lineTotal: it.lineTotal,
     }));
     const customer = (order as unknown as { customer?: { name: string } }).customer;
-    const html = generateReceiptHTML(items as any, order.total, order.discount || 0, customer?.name || (order.customerId ? "Customer" : undefined), (order as unknown as { orderNumber?: string }).orderNumber || order.id);
+    const custLabel = customer?.name || (order.customerId ? "Customer" : undefined);
+    const t = order as unknown as { cashAmount?: number | null; upiAmount?: number | null };
+    const label = order.paymentMethod === "split" && t.cashAmount != null && t.upiAmount != null
+      ? `${custLabel ? `${custLabel} ` : ""}(Split: Cash ${formatINR(t.cashAmount)} + UPI ${formatINR(t.upiAmount)})`
+      : custLabel;
+    const html = generateReceiptHTML(items as any, order.total, order.discount || 0, label, (order as unknown as { orderNumber?: string }).orderNumber || order.id);
     const w = window.open("", "_blank");
     if (w) { w.document.write(html); w.document.close(); w.print(); }
   };
@@ -131,6 +136,13 @@ export default function OrderDetailPage() {
                   {(order.discount || 0) > 0 && <div className="flex justify-between text-primary"><span>Discount</span><span className="font-bold">- {formatINR(order.discount)}</span></div>}
                   <Separator />
                   <div className="flex justify-between items-center"><span className="font-bold flex items-center gap-1"><CreditCard className="w-4 h-4" /> Grand Total</span><span className="font-black text-lg text-primary">{formatINR(order.total)}</span></div>
+                  <div className="flex justify-between text-xs text-muted-foreground"><span>Payment</span><span className="capitalize font-medium text-foreground">{order.paymentMethod}</span></div>
+                  {(() => {
+                    const t = order as unknown as { cashAmount?: number | null; upiAmount?: number | null };
+                    return order.paymentMethod === "split" && t.cashAmount != null && t.upiAmount != null ? (
+                      <div className="flex justify-between text-xs text-muted-foreground"><span>Tender</span><span className="font-medium text-foreground">{formatINR(t.cashAmount)} cash + {formatINR(t.upiAmount)} UPI</span></div>
+                    ) : null;
+                  })()}
                 </CardContent>
               </Card>
 

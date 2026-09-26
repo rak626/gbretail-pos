@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuthStore, refreshShopCounters } from "@/store/authStore";
 import { apiClient } from "@/lib/apiClient";
 import { useConfirm } from "@/components/confirm-dialog";
+import { useOfflineBlock } from "@/hooks/useOfflineBlock";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Settings, Monitor, Plus, Trash2, Store, Users, ChevronRight } from "lucide-react";
 
@@ -35,6 +36,7 @@ export default function SettingsPage() {
   const user = useAuthStore((s) => s.user);
   const shop = useAuthStore((s) => s.shop);
   const { confirm, notify } = useConfirm();
+  const { offline, block, reason } = useOfflineBlock(notify);
   const [counters, setCounters] = useState<{ id: string; name: string; isActive: boolean; shopId: string }[]>([]);
   const [shopUsers, setShopUsers] = useState<ShopUser[]>([]);
   const [loading, setLoading] = useState(false);
@@ -72,6 +74,7 @@ export default function SettingsPage() {
 
   const handleDeleteCounter = async () => {
     if (!detail) return;
+    if (await block()) return;
     const attached = staffOf(detail.id);
     const ok = await confirm({
       title: `Delete counter "${detail.name}"?`,
@@ -99,6 +102,7 @@ export default function SettingsPage() {
 
   const handleAddCounter = async () => {
     if (adding) return;
+    if (await block()) return;
     setAdding(true);
     setError("");
     try {
@@ -168,7 +172,7 @@ export default function SettingsPage() {
               <div className="flex items-center gap-2">
                 <Badge variant="outline">Shared inventory</Badge>
                 {canManage && (
-                  <Button size="sm" className="h-7 gap-1" onClick={() => setAddOpen(true)}><Plus className="w-3.5 h-3.5" /> Add</Button>
+                  <Button size="sm" className="h-7 gap-1" onClick={() => setAddOpen(true)} disabled={offline} title={offline ? reason : undefined}><Plus className="w-3.5 h-3.5" /> Add</Button>
                 )}
               </div>
             </CardHeader>
@@ -225,7 +229,7 @@ export default function SettingsPage() {
               </div>
               <DialogFooter className="p-4 gap-2 sm:justify-end">
                 <Button variant="outline" onClick={() => setAddOpen(false)} disabled={adding} className="h-9">Cancel</Button>
-                <Button onClick={handleAddCounter} disabled={adding} className="h-9 px-5">
+                <Button onClick={handleAddCounter} disabled={adding || offline} title={offline ? reason : undefined} className="h-9 px-5">
                   {adding ? "Creating..." : `Create ${previewName}`}
                 </Button>
               </DialogFooter>
@@ -270,7 +274,7 @@ export default function SettingsPage() {
               </div>
               {canManage && (
                 <DialogFooter className="p-4 gap-2 sm:justify-between border-t bg-muted/20">
-                  <Button variant="ghost" size="sm" onClick={handleDeleteCounter} disabled={deleting} className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10">
+                    <Button variant="ghost" size="sm" onClick={handleDeleteCounter} disabled={deleting || offline} title={offline ? reason : undefined} className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10">
                     <Trash2 className="w-3.5 h-3.5" /> {deleting ? "Deleting..." : "Delete counter"}
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => setDetailId(null)}>Close</Button>

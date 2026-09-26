@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { fetchMe } from "@/lib/authApi";
+
+// Grants/roles go stale (owner revokes inventory, deactivation, shop changes) —
+// revalidate at most this often on navigation + window focus.
+const REVALIDATE_MS = 5 * 60 * 1000;
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -11,6 +15,20 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const hasHydrated = useAuthStore((s) => s.hasHydrated);
   const user = useAuthStore((s) => s.user);
   const [checking, setChecking] = useState(true);
+  const lastValidatedRef = useRef(0);
+
+  // Hard auth failures broadcast from apiClient (disabled account/shop, revoked
+  // session): sign out centrally and land on login with the reason.
+  useEffect(() => {
+    const onRevoked = (e: Event) => {
+      const reason = (e as CustomEvent<string>).detail || "SESSION_REVOKED";
+      lastValidatedRef.current = 0;
+      useAuthStore.getState().clearAuth();
+      router.replace(`/login?reason=${encodeURIComponent(reason)}`);
+    };
+    window.addEventListener("auth:revoked", onRevoked);
+    return () => window.removeEventListener("auth:revoked", onRevoked);
+  }, [router]);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -22,14 +40,15 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
     const { user: currentUser } = useAuthStore.getState();
-    // if we already have a user and token, just mark not checking — avoid re-validating every render
-    // Do a single lightweight validation only on first mount
-    const shouldValidate = !currentUser || !token;
+    // Validate when signed out OR when the last check is stale — grants, roles and
+    // shop assignment refresh within REVALIDATE_MS instead of lingering till reload.
+    const shouldValidate = !currentUser || !token || Date.now() - lastValidatedRef.current > REVALIDATE_MS;
 
     const doValidate = async () => {
       try {
         const data = await fetchMe();
         if (cancelled) return;
+        lastValidatedRef.current = Date.now();
         const u = data.user as any;
         const shop = (data as any).shop ?? null;
         const counters = (data as any).counters ?? [];
@@ -39,14 +58,19 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         const existingUserId = state.user?.id;
         if (!existingUserId || existingUserId !== u.id) {
           state.setAuth(newToken || token || "", u, shop, counters);
-        } else if (JSON.stringify(state.counters) !== JSON.stringify(counters) || state.shop?.id !== shop?.id) {
-          // update counters/shop without touching token if already same user
-          useAuthStore.setState({ counters, shop });
+        } else {
+          // Same user: merge the FRESH profile (role, canManageInventory, counter,
+          // shop assignment) so revoked grants apply without a reload.
+          useAuthStore.setState({ user: u, counters, shop });
         }
-      } catch {
+      } catch (e) {
         if (!cancelled) {
+          const code = (e as { code?: string })?.code;
+          const reason = code === "ACCOUNT_DISABLED" || code === "SHOP_DISABLED" || code === "SESSION_REVOKED"
+            ? `?reason=${encodeURIComponent(code)}`
+            : "";
           useAuthStore.getState().clearAuth();
-          router.replace("/login");
+          router.replace(`/login${reason}`);
         }
       } finally {
         if (!cancelled) setChecking(false);
@@ -63,6 +87,27 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
   }, [hasHydrated, pathname, router]);
+
+  // Revalidate on window focus when stale (owner changes apply while till sits open).
+  useEffect(() => {
+    const onFocus = () => {
+      if (!hasHydrated || pathname === "/login") return;
+      if (Date.now() - lastValidatedRef.current <= REVALIDATE_MS) return;
+      const { user: u } = useAuthStore.getState();
+      if (!u) return;
+      lastValidatedRef.current = Date.now();
+      fetchMe()
+        .then((data) => {
+          const fresh = (data as any).user;
+          useAuthStore.setState({ user: fresh, shop: (data as any).shop ?? null, counters: (data as any).counters ?? [] });
+        })
+        .catch(() => {
+          // leave stale session; next navigation revalidates (or 403s land centrally)
+        });
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [hasHydrated, pathname]);
 
   if (pathname === "/login") return <>{children}</>;
 

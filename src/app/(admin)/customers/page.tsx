@@ -13,6 +13,8 @@ import { fetchCustomersPaged } from "@/lib/api";
 import type { Customer } from "@/db/database";
 import CustomerDrawer from "@/components/customers/CustomerDrawer";
 import CustomerFormDialog from "@/components/customers/CustomerFormDialog";
+import { useOnlineStore } from "@/store/onlineStore";
+import { OFFLINE_REASON } from "@/hooks/useOfflineBlock";
 import {
   Users,
   Search,
@@ -58,6 +60,7 @@ export default function CustomersPage() {
   const [sortOrder, setSortOrder] = useState<string>("desc");
   const [hasBalance, setHasBalance] = useState<string>("all");
   const [loading, setLoading] = useState(true);
+  const offline = useOnlineStore((s) => !s.online);
   const [error, setError] = useState("");
   const [stats, setStats] = useState<{ totalCustomers: number; active30d: number; withDues: { count: number; amount: number }; withoutDues: number; topSpender: { name: string; totalSpent: number } | null } | null>(null);
 
@@ -176,7 +179,7 @@ export default function CustomersPage() {
               <h1 className="text-base font-semibold flex items-center gap-1.5"><Users className="w-4 h-4 text-primary" /> Customers</h1>
               <Badge variant="secondary" className="rounded-full text-xs font-normal px-2.5 hidden sm:inline-flex">{total} total</Badge>
             </div>
-            <Button onClick={() => setAddOpen(true)} className="shrink-0 gap-1.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground"><Plus className="w-4 h-4" /> Add Customer</Button>
+            <Button onClick={() => setAddOpen(true)} disabled={offline} title={offline ? OFFLINE_REASON : undefined} className="shrink-0 gap-1.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground"><Plus className="w-4 h-4" /> Add Customer</Button>
           </div>
 
           {/* stats */}
@@ -288,7 +291,7 @@ export default function CustomersPage() {
                   <div className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
                     {search || hasBalance !== "all" ? "Try a different search or clear filters." : "Add your first customer — only name is required. They'll appear here with total orders & previous bills."}
                   </div>
-                  <Button onClick={() => setAddOpen(true)} size="sm" className="mt-3"><Plus className="w-4 h-4" /> Add Customer</Button>
+                  <Button onClick={() => setAddOpen(true)} disabled={offline} title={offline ? OFFLINE_REASON : undefined} size="sm" className="mt-3"><Plus className="w-4 h-4" /> Add Customer</Button>
                 </div>
               ) : (
                 <div className="overflow-auto max-h-[56vh]">

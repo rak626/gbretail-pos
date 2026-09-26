@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/store/authStore";
 import { apiClient } from "@/lib/apiClient";
 import { useConfirm } from "@/components/confirm-dialog";
+import { useOfflineBlock } from "@/hooks/useOfflineBlock";
 import { Shield, Store, Plus, Monitor, Trash2, RefreshCw, Power, Users, Package, Receipt, UserX } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +39,7 @@ function lastBillLabel(iso?: string | null) {
 export default function AdminPage() {
   const user = useAuthStore((s) => s.user);
   const { confirm, notify } = useConfirm();
+  const { offline, block, reason } = useOfflineBlock(notify);
   const [shops, setShops] = useState<ShopRow[]>([]);
   const [shopName, setShopName] = useState("");
   const [shopAddress, setShopAddress] = useState("");
@@ -91,6 +93,7 @@ export default function AdminPage() {
 
   const handleCreateShop = async (e?: React.FormEvent) => {
     e?.preventDefault();
+    if (await block()) return;
     if (!shopName.trim()) return setError("Shop name required");
     setLoading(true);
     try {
@@ -106,6 +109,7 @@ export default function AdminPage() {
   };
 
   const handleDeleteShop = async (id: string, name: string) => {
+    if (await block()) return;
     const ok = await confirm({
       title: `Delete shop "${name}"?`,
       description: "The shop will be soft-deleted along with its counters. This can be restored later.",
@@ -122,6 +126,7 @@ export default function AdminPage() {
   };
 
   const handleToggleShop = async (s: ShopRow) => {
+    if (await block()) return;
     if (s.isActive) {
       const ok = await confirm({
         title: `Deactivate "${s.name}"?`,
@@ -165,7 +170,7 @@ export default function AdminPage() {
                   <Label className="text-xs">Address</Label>
                   <Input value={shopAddress} onChange={(e) => setShopAddress(e.target.value)} placeholder="Main Bazaar" className="h-9 text-sm" />
                 </div>
-                <Button type="submit" disabled={loading} className="h-9 px-5"><Plus className="w-4 h-4" /> Add shop</Button>
+                <Button type="submit" disabled={loading || offline} title={offline ? reason : undefined} className="h-9 px-5"><Plus className="w-4 h-4" /> Add shop</Button>
               </form>
             </CardContent>
           </Card>
@@ -199,13 +204,13 @@ export default function AdminPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleToggleShop(s)}
-                            disabled={busyId === s.id}
+                            disabled={busyId === s.id || offline}
                             className="h-8 gap-1.5 text-xs font-semibold"
-                            title={s.isActive ? "Deactivate shop (blocks staff login)" : "Reactivate shop"}
+                            title={offline ? reason : s.isActive ? "Deactivate shop (blocks staff login)" : "Reactivate shop"}
                           >
                             <Power className="w-3.5 h-3.5" /> {s.isActive ? "Deactivate" : "Activate"}
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteShop(s.id, s.name)} className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive" title="Delete shop">
+                          <Button variant="ghost" size="sm" onClick={() => handleDeleteShop(s.id, s.name)} disabled={offline} className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive" title={offline ? reason : "Delete shop"}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>

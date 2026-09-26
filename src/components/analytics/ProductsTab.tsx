@@ -175,6 +175,12 @@ export default function ProductsTab({ data, topN, setTopN, topSort, setTopSort, 
                       </div>
                     ))}
                   </div>
+                  {(Number((data as any)?.tender?.splitCash) > 0 || Number((data as any)?.tender?.splitUpi) > 0) && (
+                    <div className="mt-2 rounded-lg border border-dashed p-2 text-xs text-muted-foreground flex items-center justify-between">
+                      <span>Split tender — drawer tally</span>
+                      <span className="font-bold text-foreground">{formatINR(Number((data as any).tender.splitCash))} cash + {formatINR(Number((data as any).tender.splitUpi))} UPI</span>
+                    </div>
+                  )}
                 </>
               );
             })()}

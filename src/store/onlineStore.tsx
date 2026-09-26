@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { API_BASE } from "@/lib/apiClient";
 import { useCartStore } from "@/store/cartStore";
 
-const HEARTBEAT_MS = 10_000;
+const HEARTBEAT_MS = 5_000;
 const TIMEOUT_MS = 5_000;
 const FAILS_TO_OFFLINE = 2;
 
@@ -47,7 +47,7 @@ async function ping(): Promise<boolean> {
 
 async function runCheck() {
   const set = useOnlineStore.getState();
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
+  if (typeof navigator !== "undefined" && (navigator as Navigator).onLine === false) {
     fails = 0;
     if (set.online !== false) {
       useOnlineStore.setState({ online: false, lastChecked: Date.now() });
@@ -88,7 +88,11 @@ function onFocus() {
 }
 
 export const useOnlineStore = create<OnlineState>()(() => ({
-  online: typeof navigator === "undefined" ? true : navigator.onLine,
+  // SSR-safe: Node 21+ defines a global `navigator` without `onLine`
+  // (undefined). Default true unless the browser affirmatively says offline,
+  // so server HTML matches the client's first render (no hydration mismatch).
+  // The heartbeat + browser events correct it within seconds if truly offline.
+  online: typeof navigator === "undefined" || (navigator as Navigator).onLine !== false,
   lastChecked: 0,
 
   start: () => {

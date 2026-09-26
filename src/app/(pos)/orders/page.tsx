@@ -563,7 +563,11 @@ export default function OrdersPage() {
                 isCustom: (it as any).isCustom,
                 lineTotal: it.lineTotal,
               }));
-              const html = generateReceiptHTML(items as any, o.total, o.discount || 0, customer?.name || (o.customerId ? "Customer" : undefined), full);
+              const custLabel = customer?.name || (o.customerId ? "Customer" : undefined);
+              const label = o.paymentMethod === "split" && o.cashAmount != null && o.upiAmount != null
+                ? `${custLabel ? `${custLabel} ` : ""}(Split: Cash ${formatINR(o.cashAmount)} + UPI ${formatINR(o.upiAmount)})`
+                : custLabel;
+              const html = generateReceiptHTML(items as any, o.total, o.discount || 0, label, full);
               const w = window.open("", "_blank");
               if (w) { w.document.write(html); w.document.close(); w.print(); }
             };
@@ -596,6 +600,11 @@ export default function OrdersPage() {
                     <span className="tabular-nums">{new Date(o.createdAt as unknown as string).toLocaleString("en-IN")}</span>
                     <span className="inline-flex items-center gap-1.5 capitalize">
                       <span className={`w-2 h-2 rounded-full ${PAY_DOT[o.paymentMethod] ?? "bg-muted-foreground"}`} />{o.paymentMethod}
+                      {o.paymentMethod === "split" && o.cashAmount != null && o.upiAmount != null && (
+                        <span className="normal-case text-[11px] text-muted-foreground tabular-nums">
+                          {formatINR(o.cashAmount)} cash + {formatINR(o.upiAmount)} UPI
+                        </span>
+                      )}
                     </span>
                     {o.status && <Badge variant="outline" className="text-[11px]">{o.status}</Badge>}
                   </DrawerDescription>
@@ -679,6 +688,11 @@ export default function OrdersPage() {
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Payment</span><span className="capitalize font-medium text-foreground">{o.paymentMethod}</span>
                       </div>
+                      {o.paymentMethod === "split" && o.cashAmount != null && o.upiAmount != null && (
+                        <div className="flex justify-between text-xs text-muted-foreground tabular-nums">
+                          <span>Tender</span><span className="font-medium text-foreground">{formatINR(o.cashAmount)} cash + {formatINR(o.upiAmount)} UPI</span>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </div>

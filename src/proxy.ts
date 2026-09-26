@@ -19,16 +19,14 @@ export function proxy(req: NextRequest) {
   // To enforce strict, redirect to /login if no cookie and no token header
   // For now, only redirect if definitely no token and not already navigating to login
 
-  // If we have no tokens and it's a page (not api), redirect to login
-  const accept = req.headers.get("accept") || "";
-  const isPage = accept.includes("text/html") || pathname === "/" || pathname.startsWith("/inventory") || pathname.startsWith("/customers") || pathname.startsWith("/orders") || pathname.startsWith("/ledger") || pathname.startsWith("/analytics");
-
-  if (isPage && !accessToken && !refreshToken) {
-    // Don't block if client has localStorage token — we can't see it server side, so we allow and client useEffect will handle
-    // Add header to hint client to check auth
-    const res = NextResponse.next();
-    res.headers.set("x-auth-required", "1");
-    return res;
+  // If no cookie, the browser has no server-visible session — bounce to login.
+  // (localStorage tokens are invisible here; /login auto-redirects back when the
+  // session is actually valid, preserving ?next=.)
+  if (!accessToken && !refreshToken) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();

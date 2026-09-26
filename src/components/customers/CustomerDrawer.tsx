@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { fetchCustomer, softDeleteCustomer, restoreCustomer, fetchOrders, fetchLedger } from "@/lib/api";
 import { useConfirm } from "@/components/confirm-dialog";
+import { useOfflineBlock } from "@/hooks/useOfflineBlock";
 import { formatINR } from "@/lib/utils";
 import { generateReceiptHTML } from "@/lib/print";
 import type { Customer } from "@/db/database";
@@ -78,6 +79,7 @@ function DrawerContent({ className, children, ...props }: React.ComponentProps<t
 
 export default function CustomerDrawer({ open, onOpenChange, customerId, onDeleted, onUpdated }: DrawerProps) {
   const { confirm, notify } = useConfirm();
+  const { offline, block, reason } = useOfflineBlock(notify);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [customer, setCustomer] = useState<(Customer & { email?: string | null; address?: string | null; notes?: string | null; creditLimit?: number | null }) | null>(null);
@@ -165,6 +167,7 @@ export default function CustomerDrawer({ open, onOpenChange, customerId, onDelet
 
   const handleSoftDelete = async () => {
     if (!customer || !customerId) return;
+    if (await block()) return;
     const hasDue = customer.balance > 0;
     const ok = await confirm({
       title: `Hide customer "${customer.name}"?`,
@@ -189,6 +192,7 @@ export default function CustomerDrawer({ open, onOpenChange, customerId, onDelet
 
   const handleRestore = async () => {
     if (!customerId) return;
+    if (await block()) return;
     try {
       await restoreCustomer(customerId);
       await load(customerId, ordersPage);
@@ -268,12 +272,12 @@ export default function CustomerDrawer({ open, onOpenChange, customerId, onDelet
                           </Button>
                         </>
                       )}
-                      <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleSoftDelete} disabled={deleting}>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleSoftDelete} disabled={deleting || offline} title={offline ? reason : undefined}>
                         <Trash2 className="w-3 h-3" /> {deleting ? "Hiding..." : "Hide"}
                       </Button>
                     </>
                   ) : (
-                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleRestore}>
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleRestore} disabled={offline} title={offline ? reason : undefined}>
                       <RotateCcw className="w-3 h-3" /> Restore
                     </Button>
                   )}

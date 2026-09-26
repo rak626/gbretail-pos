@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import CounterSelect from "@/components/CounterSelect";
 import UserDrawer from "@/components/users/UserDrawer";
 import { useConfirm } from "@/components/confirm-dialog";
+import { useOfflineBlock } from "@/hooks/useOfflineBlock";
 
 type UserRow = { id: string; email: string; name: string; role: string; shopId: string | null; isActive: boolean; canManageInventory?: boolean; counterId?: string | null; shop?: { id: string; name: string } | null; createdAt?: string };
 type ShopOpt = { id: string; name: string };
@@ -43,7 +44,8 @@ export default function UsersPage() {
   const [creating, setCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const { confirm } = useConfirm();
+  const { confirm, notify } = useConfirm();
+  const { offline, block, reason } = useOfflineBlock(notify);
 
   const isSuper = user?.role === "SUPER_ADMIN";
   const isOwner = user?.role === "SHOP_OWNER";
@@ -105,6 +107,7 @@ export default function UsersPage() {
   }
 
   const handleCreate = async () => {
+    if (await block()) return;
     if (!newUser.email || !newUser.password || !newUser.name) return setError("email / password / name required");
     if (creating) return;
     setCreating(true);
@@ -140,6 +143,7 @@ export default function UsersPage() {
   };
 
   const handleAssignCounter = async (u: UserRow, counterId: string | null) => {
+    if (await block()) return;
     setError("");
     try {
       await apiClient.patch(`/api/users/${u.id}`, { counterId });
@@ -149,7 +153,8 @@ export default function UsersPage() {
     }
   };
 
-  const handleToggleInventory = async (u: UserRow) => {    setError("");
+  const handleToggleInventory = async (u: UserRow) => {    if (await block()) return;
+    setError("");
     try {
       await apiClient.patch(`/api/users/${u.id}`, { canManageInventory: !u.canManageInventory });
       setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, canManageInventory: !u.canManageInventory } : x)));
@@ -176,6 +181,7 @@ export default function UsersPage() {
 
   const handleToggleStatus = async (u: UserRow) => {
     if (!canToggleStatus(u)) return;
+    if (await block()) return;
     if (u.isActive) {
       const ok = await confirm({
         title: `Deactivate ${u.name}?`,
@@ -198,6 +204,7 @@ export default function UsersPage() {
   };
 
   const handleDeleteUser = async (u: UserRow) => {
+    if (await block()) return;
     const ok = await confirm({
       title: `Delete ${u.name}?`,
       description: "The account will be soft-deleted and can be restored later.",
@@ -236,7 +243,7 @@ export default function UsersPage() {
             <div className="flex items-center gap-2">
               <Badge variant="outline">{loading ? "loading..." : `${users.length} users`}</Badge>
               <Button variant="outline" size="sm" onClick={load} disabled={loading}><RefreshCw className="w-4 h-4" /> Refresh</Button>
-              <Button size="sm" onClick={() => { setError(""); setCreateOpen(true); }}><Plus className="w-4 h-4" /> Create User</Button>
+              <Button size="sm" onClick={() => { setError(""); setCreateOpen(true); }} disabled={offline} title={offline ? reason : undefined}><Plus className="w-4 h-4" /> Create User</Button>
             </div>
           </div>
 
@@ -331,7 +338,7 @@ export default function UsersPage() {
               </div>
               <DialogFooter className="p-4 gap-2 sm:justify-end border-t bg-muted/20">
                 <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating} className="h-9">Cancel</Button>
-                <Button onClick={handleCreate} disabled={creating} className="h-9 px-6">{creating ? "Creating..." : "Create"}</Button>
+                <Button onClick={handleCreate} disabled={creating || offline} title={offline ? reason : undefined} className="h-9 px-6">{creating ? "Creating..." : "Create"}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

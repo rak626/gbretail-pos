@@ -84,6 +84,8 @@ export async function createOrder(payload: {
   total: number;
   discount?: number;
   paymentMethod: string;
+  splitCash?: number;
+  splitUpi?: number;
   customerId?: string;
   customerName?: string;
   customerPhone?: string;
@@ -91,8 +93,12 @@ export async function createOrder(payload: {
   customDays?: number;
   counterId?: string;
   shopId?: string;
-}) {
-  const data = await apiClient.post<{ order: Order; lowStockWarnings?: LowStockWarning[] }>("/api/orders", payload);
+}, opts?: { idempotencyKey?: string }) {
+  const data = await apiClient.post<{ order: Order; lowStockWarnings?: LowStockWarning[]; idempotentReplay?: boolean }>(
+    "/api/orders",
+    payload,
+    opts?.idempotencyKey ? { headers: { "Idempotency-Key": opts.idempotencyKey } } : undefined
+  );
   if (data.lowStockWarnings?.length) {
     console.warn(
       "[orders] low stock after sale:",
@@ -143,8 +149,12 @@ export async function fetchDueToday(q?: string, includeOverdue?: boolean) {
   });
 }
 
-export async function createLedgerEntry(payload: { customerId?: string; customerName?: string; customerPhone?: string; amount: number; creditDays?: number; customDays?: number; note?: string; orderId?: string; counterId?: string; shopId?: string }) {
-  return apiClient.post<{ entry: unknown }>("/api/ledger", payload);
+export async function createLedgerEntry(payload: { customerId?: string; customerName?: string; customerPhone?: string; amount: number; creditDays?: number; customDays?: number; note?: string; orderId?: string; counterId?: string; shopId?: string }, opts?: { idempotencyKey?: string }) {
+  return apiClient.post<{ entry: unknown; idempotentReplay?: boolean }>(
+    "/api/ledger",
+    payload,
+    opts?.idempotencyKey ? { headers: { "Idempotency-Key": opts.idempotencyKey } } : undefined
+  );
 }
 
 export async function settleLedgerEntry(id: string, action: "settle" | "reopen" = "settle") {
@@ -165,6 +175,7 @@ export async function fetchAnalyticsSummary(params?: { preset?: string; from?: s
     topByRevenue: { productId: string | null; name: string; category: string; qty: number; gross: number; profit: number }[];
     categories: { category: string; gross: number; netRevenue: number; profit: number; qty: number; marginPct: number }[];
     paymentSplit: Record<string, number>;
+    tender: { splitCash: number; splitUpi: number };
     ledger: { created: { count:number; amount:number }; settled:{count:number;amount:number}; pending:{count:number;amount:number}; overdue:{count:number;amount:number}; collectionRate:number; avgDaysToSettle:number | null; aging:{bucket:string;count:number;amount:number}[]; agingNotDue:{bucket:string;count:number;amount:number}[]; timeseries:{bucket:string;label:string;created:number;settled:number;createdCount:number;settledCount:number}[] };
     meta: { topN:number; categoryFilter:string; bucketCount:number };
   }>("/api/analytics/summary", {

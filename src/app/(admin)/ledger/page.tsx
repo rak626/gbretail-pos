@@ -16,6 +16,7 @@ import { fetchCustomers, fetchLedger, fetchDueToday, createLedgerEntry, settleLe
 import type { Customer } from "@/db/database";
 import { useAuthStore } from "@/store/authStore";
 import { useConfirm } from "@/components/confirm-dialog";
+import { useOfflineBlock } from "@/hooks/useOfflineBlock";
 import { BookOpen, Plus, Search, Calendar, Phone, User, CheckCircle2, AlertTriangle, Clock3, Wallet, Undo2, Trash2 } from "lucide-react";
 
 type LedgerEntryUI = {
@@ -45,6 +46,7 @@ const TERM_OPTIONS: Array<{ value: "7" | "15" | "30" | "custom"; label: string }
 export default function LedgerPage() {
   const selectedCounterId = useAuthStore((s) => s.selectedCounterId);
   const { confirm, notify } = useConfirm();
+  const { offline, block, reason } = useOfflineBlock(notify);
   const [filter, setFilter] = useState<Filter>("dueToday");
   const [search, setSearch] = useState("");
   const [entries, setEntries] = useState<LedgerEntryUI[]>([]);
@@ -72,6 +74,20 @@ export default function LedgerPage() {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  // Idempotency key for the manual-entry form: reused across retries of the same
+  // values (double-click safe), regenerated whenever the form changes or succeeds.
+  const entryKeyRef = useRef<string>("");
+  const newEntryKey = () => {
+    try {
+      if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+    } catch {
+      // fall through
+    }
+    return `due-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+  };
+  useEffect(() => {
+    entryKeyRef.current = "";
+  }, [amountStr, term, customDays, note, selectedCustomer, manualName, manualPhone]);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const custInputRef = useRef<HTMLInputElement>(null);
@@ -186,6 +202,7 @@ export default function LedgerPage() {
     return n;
   };
   const handleCreate = async () => {
+    if (await block()) return;
     setFormError("");
     const amt = parseFloat(amountStr);
     if (!amt || isNaN(amt) || amt <= 0) return setFormError("Enter valid amount (e.g., 200)");
@@ -203,6 +220,7 @@ export default function LedgerPage() {
     }
     setSaving(true);
     try {
+      if (!entryKeyRef.current) entryKeyRef.current = newEntryKey();
       await createLedgerEntry({
         customerId: selectedCustomer?.id,
         customerName: !selectedCustomer ? nameToUse : undefined,
@@ -211,7 +229,8 @@ export default function LedgerPage() {
         creditDays: days,
         note: note.trim() || undefined,
         counterId: selectedCounterId ?? undefined,
-      } as any);
+      } as any, { idempotencyKey: entryKeyRef.current });
+      entryKeyRef.current = "";
       setAddOpen(false);
       setAmountStr("");
       setTerm("15");
@@ -231,6 +250,7 @@ export default function LedgerPage() {
   };
 
   const handleSettle = async (e: LedgerEntryUI) => {
+    if (await block()) return;
     const ok = await confirm({
       title: `Mark ${formatINR(e.amount)} as settled?`,
       description: `From ${e.customer.name} — this will reduce the due balance.`,
@@ -245,6 +265,7 @@ export default function LedgerPage() {
     }
   };
   const handleReopen = async (e: LedgerEntryUI) => {
+    if (await block()) return;
     const ok = await confirm({
       title: "Reopen this settled entry?",
       description: `${formatINR(e.amount)} — ${e.customer.name}. Balance will increase again.`,
@@ -282,7 +303,7 @@ export default function LedgerPage() {
               <h1 className="text-base font-semibold flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-primary" /> Ledger — Khata</h1>
               <Badge variant="secondary" className="hidden sm:inline-flex rounded-full">{total} entries</Badge>
             </div>
-            <Button onClick={() => setAddOpen(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 rounded-full gap-1.5"><Plus className="w-4 h-4" /> Add Khata</Button>
+            <Button onClick={() => setAddOpen(true)} disabled={offline} title={offline ? reason : undefined} className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 rounded-full gap-1.5"><Plus className="w-4 h-4" /> Add Khata</Button>
           </div>
 
           {/* stats — Due Today spotlight */}
@@ -376,7 +397,7 @@ export default function LedgerPage() {
                     <Button variant="outline" size="sm" className="mt-3" onClick={() => switchFilter("pending")}>View all pending ({stats.pending.count})</Button>
                   )}
                   {filter !== "dueToday" && (
-                    <Button onClick={() => setAddOpen(true)} size="sm" className="mt-3 bg-primary hover:bg-primary/90 text-white"><Plus className="w-4 h-4" /> Add ₹200 khata</Button>
+                    <Button onClick={() => setAddOpen(true)} disabled={offline} title={offline ? reason : undefined} size="sm" className="mt-3 bg-primary hover:bg-primary/90 text-white"><Plus className="w-4 h-4" /> Add ₹200 khata</Button>
                   )}
                 </div>
               ) : (
@@ -432,12 +453,12 @@ export default function LedgerPage() {
                             </TableCell>
                             <TableCell className="text-right">
                               {e.status === "pending" ? (
-                                <Button size="sm" className="h-7 text-xs bg-primary hover:bg-primary text-white gap-1" onClick={() => handleSettle(e)}>
+                                <Button size="sm" className="h-7 text-xs bg-primary hover:bg-primary text-white gap-1" onClick={() => handleSettle(e)} disabled={offline} title={offline ? reason : undefined}>
                                   <CheckCircle2 className="w-3.5 h-3.5" /> Settle
                                 </Button>
                               ) : (
                                 <div className="flex justify-end gap-1">
-                                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleReopen(e)}><Undo2 className="w-3 h-3" /> Reopen</Button>
+                                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => handleReopen(e)} disabled={offline} title={offline ? reason : undefined}><Undo2 className="w-3 h-3" /> Reopen</Button>
                                 </div>
                               )}
                             </TableCell>
@@ -569,7 +590,7 @@ export default function LedgerPage() {
           </div>
           <DialogFooter className="p-4 gap-3 sm:justify-end">
             <Button variant="outline" onClick={() => setAddOpen(false)} disabled={saving} className="h-9 px-6">Cancel</Button>
-            <Button onClick={handleCreate} disabled={saving} className="bg-primary hover:bg-primary/90 text-white h-9 px-6 min-w-[140px]">
+            <Button onClick={handleCreate} disabled={saving || offline} title={offline ? reason : undefined} className="bg-primary hover:bg-primary/90 text-white h-9 px-6 min-w-[140px]">
               {saving ? "Adding..." : `Add ${amountStr ? formatINR(parseFloat(amountStr) || 0) : "Khata"}`}
             </Button>
           </DialogFooter>

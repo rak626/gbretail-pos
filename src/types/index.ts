@@ -76,6 +76,8 @@ export type Order = {
   total: number;
   discount: number;
   paymentMethod: "cash" | "upi" | "khata" | "split";
+  cashAmount?: number | null;
+  upiAmount?: number | null;
   customerId?: string | null;
   customer?: Customer | null;
   status: string;

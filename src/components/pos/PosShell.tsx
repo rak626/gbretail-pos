@@ -1,6 +1,7 @@
 "use client";
 
 import PosTopStrip from "@/components/pos/PosTopStrip";
+import OfflineBanner from "@/components/OfflineBanner";
 
 /**
  * Kiosk / cashier shell — no sidebar, slim top strip, touch-first.
@@ -11,6 +12,7 @@ export default function PosShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="kiosk h-screen flex flex-col bg-muted/40">
       <PosTopStrip />
+      <OfflineBanner />
       <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">{children}</div>
     </div>
   );
