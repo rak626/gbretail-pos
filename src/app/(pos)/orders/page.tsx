@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { formatINR } from "@/lib/utils";
 import { generateReceiptHTML } from "@/lib/print";
+import { useReceiptShop } from "@/hooks/useReceiptShop";
 import { fetchOrders } from "@/lib/api";
 import type { Order } from "@/db/database";
 import { Receipt, User, Phone, CreditCard, ShoppingBag, Printer, X, ChevronLeft, ChevronRight, ChevronRight as GoIcon, Copy, Check, Hash, RefreshCw, CircleUserRound, Search, Calendar } from "lucide-react";
@@ -86,6 +87,7 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedRow, setCopiedRow] = useState<string | null>(null);
+  const receiptShop = useReceiptShop();
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -567,7 +569,7 @@ export default function OrdersPage() {
               const label = o.paymentMethod === "split" && o.cashAmount != null && o.upiAmount != null
                 ? `${custLabel ? `${custLabel} ` : ""}(Split: Cash ${formatINR(o.cashAmount)} + UPI ${formatINR(o.upiAmount)})`
                 : custLabel;
-              const html = generateReceiptHTML(items as any, o.total, o.discount || 0, label, full);
+              const html = generateReceiptHTML(items as any, o.total, o.discount || 0, label, full, receiptShop);
               const w = window.open("", "_blank");
               if (w) { w.document.write(html); w.document.close(); w.print(); }
             };

@@ -10,16 +10,18 @@ const inrFormatter = new Intl.NumberFormat(CURRENCY.LOCALE, {
   maximumFractionDigits: 2,
 });
 
-/** Format INR with consistent precision. Use compact=false for ₹280.00, compact=true for ₹280 */
-export function formatINR(amount: number, opts?: { compact?: boolean }): string {
-  const raw = inrFormatter.format(amount);
+/** Format INR with consistent precision. Coerces strings/null defensively. */
+export function formatINR(amount: number | string | null | undefined, opts?: { compact?: boolean }): string {
+  const n = Number(amount);
+  const raw = inrFormatter.format(isFinite(n) ? n : 0);
   if (opts?.compact) return raw.replace(".00", "");
   return raw;
 }
 
 /** Alias for receipt printing (always 2 decimals) */
-export function formatINRReceipt(amount: number): string {
-  return `₹${amount.toFixed(2)}`;
+export function formatINRReceipt(amount: number | string | null | undefined): string {
+  const n = Number(amount);
+  return `₹${(isFinite(n) ? n : 0).toFixed(2)}`;
 }
 
 export function formatDateIN(date: string | number | Date, opts?: Intl.DateTimeFormatOptions): string {
@@ -85,6 +87,10 @@ export function generateOrderNumber(date = new Date()): string {
   return `ORD-${Date.now().toString(36).toUpperCase()}`;
 }
 
-export function formatUPIPaymentUrl(amount: number, storeId = "store@upi"): string {
-  return `upi://pay?pa=${storeId}&am=${amount.toFixed(2)}&tn=Payment+at+GB+Retail`;
+export function formatUPIPaymentUrl(amount: number, upiId?: string | null, merchantName?: string | null): string {
+  const pa = upiId?.trim() || "store@upi";
+  const n = Number(amount);
+  const am = (isFinite(n) ? n : 0).toFixed(2);
+  const tn = `Payment+at+${encodeURIComponent((merchantName?.trim() || "Store").replace(/\s+/g, " "))}`;
+  return `upi://pay?pa=${encodeURIComponent(pa)}&am=${am}&tn=${tn}`;
 }

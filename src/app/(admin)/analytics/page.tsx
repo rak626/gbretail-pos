@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { fetchAnalyticsSummary, fetchAnalyticsSections, getAnalyticsExportUrl, type AnalyticsSections } from "@/lib/api";
+import { fetchAnalyticsSummary, fetchAnalyticsSections, downloadAnalyticsExport, type AnalyticsSections } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { useOnlineStore } from "@/store/onlineStore";
 import { OFFLINE_REASON } from "@/hooks/useOfflineBlock";
@@ -62,6 +62,25 @@ export default function AnalyticsPage() {
   const [sections, setSections] = useState<AnalyticsSections | null>(null);
   const [topSort, setTopSort] = useState<"qty" | "revenue">("qty");
   const [tab, setTab] = useState<Tab>("products");
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportCsv = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      await downloadAnalyticsExport({
+        preset: preset === "custom" ? "custom" : preset,
+        from: preset === "custom" ? from : undefined,
+        to: preset === "custom" ? to : undefined,
+        granularity: granularity !== "auto" ? granularity : undefined,
+        format: "csv",
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -103,14 +122,6 @@ export default function AnalyticsPage() {
     }
   };
 
-  const exportUrl = getAnalyticsExportUrl({
-    preset: preset === "custom" ? "custom" : preset,
-    from: preset === "custom" ? from : undefined,
-    to: preset === "custom" ? to : undefined,
-    granularity: granularity !== "auto" ? granularity : undefined,
-    format: "csv",
-  });
-
   return (
     <>
       <div className="flex-1 overflow-auto p-3">
@@ -122,7 +133,7 @@ export default function AnalyticsPage() {
               {data?.range && <Badge variant="secondary" className="hidden sm:flex rounded-full">{data.range.label} • {data.range.granularity}</Badge>}
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => window.open(exportUrl, "_blank")} disabled={offline} title={offline ? OFFLINE_REASON : undefined}><Download className="w-4 h-4" /> CSV</Button>
+              <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={offline || exporting} title={offline ? OFFLINE_REASON : undefined}><Download className="w-4 h-4" /> {exporting ? "Exporting..." : "CSV"}</Button>
               <Button variant="outline" size="sm" onClick={load} disabled={loading}>{loading ? "Loading..." : "Refresh"}</Button>
             </div>
           </div>

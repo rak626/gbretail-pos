@@ -10,6 +10,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Separator } from "@/components/ui/separator";
 import { formatINR } from "@/lib/utils";
 import { generateReceiptHTML } from "@/lib/print";
+import { useReceiptShop } from "@/hooks/useReceiptShop";
 import { ArrowLeft, Calendar, User, Phone, CreditCard, ShoppingBag, Printer, Receipt } from "lucide-react";
 import type { Order } from "@/db/database";
 import { fetchOrder } from "@/lib/api";
@@ -20,6 +21,7 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<(Order & { customer?: { name: string; phone: string | null; balance?: number } | null }) | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const receiptShop = useReceiptShop();
 
   useEffect(() => {
     const load = async () => {
@@ -56,7 +58,7 @@ export default function OrderDetailPage() {
     const label = order.paymentMethod === "split" && t.cashAmount != null && t.upiAmount != null
       ? `${custLabel ? `${custLabel} ` : ""}(Split: Cash ${formatINR(t.cashAmount)} + UPI ${formatINR(t.upiAmount)})`
       : custLabel;
-    const html = generateReceiptHTML(items as any, order.total, order.discount || 0, label, (order as unknown as { orderNumber?: string }).orderNumber || order.id);
+    const html = generateReceiptHTML(items as any, order.total, order.discount || 0, label, (order as unknown as { orderNumber?: string }).orderNumber || order.id, receiptShop);
     const w = window.open("", "_blank");
     if (w) { w.document.write(html); w.document.close(); w.print(); }
   };

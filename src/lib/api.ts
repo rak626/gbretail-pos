@@ -4,15 +4,32 @@ import type { Product, Customer, Order, LowStockWarning } from "@/types";
 
 // Products
 export async function fetchProducts(
-  params?: { search?: string; category?: string; limit?: number },
+  params?: { search?: string; category?: string; limit?: number; page?: number },
   opts?: { signal?: AbortSignal }
 ) {
-  const data = await apiClient.get<{ products: Product[]; source?: string }>(
+  const data = await apiClient.get<{ products: Product[]; total?: number; page?: number; limit?: number; source?: string }>(
     "/api/products",
-    { search: params?.search, category: params?.category, limit: params?.limit },
+    { search: params?.search, category: params?.category, limit: params?.limit, page: params?.page },
     opts
   );
   return data.products;
+}
+
+/** Paged fetch (for inventory pagination + full catalog sync). */
+export async function fetchProductsPaged(
+  params?: { search?: string; category?: string; limit?: number; page?: number },
+  opts?: { signal?: AbortSignal }
+) {
+  return apiClient.get<{ products: Product[]; total: number; page: number; limit: number; source?: string }>(
+    "/api/products",
+    { search: params?.search, category: params?.category, limit: params?.limit, page: params?.page },
+    opts
+  );
+}
+
+/** Shop-wide product KPIs + distinct categories (never paginated). */
+export async function fetchProductsMeta(opts?: { signal?: AbortSignal }) {
+  return apiClient.get<{ total: number; low: number; out: number; categories: string[] }>("/api/products/meta", undefined, opts);
 }
 
 export async function createProduct(payload: Record<string, unknown>) {
@@ -190,6 +207,17 @@ export async function fetchAnalyticsSummary(params?: { preset?: string; from?: s
 
 export function getAnalyticsExportUrl(params?: { preset?: string; from?: string; to?: string; granularity?: string; format?: string }) {
   return apiClient.exportUrl("/api/analytics/export", {
+    preset: params?.preset,
+    from: params?.from,
+    to: params?.to,
+    granularity: params?.granularity,
+    format: params?.format,
+  });
+}
+
+/** Authenticated CSV/JSON export download (header auth — works without cookies). */
+export async function downloadAnalyticsExport(params?: { preset?: string; from?: string; to?: string; granularity?: string; format?: string }) {
+  return apiClient.download("/api/analytics/export", {
     preset: params?.preset,
     from: params?.from,
     to: params?.to,

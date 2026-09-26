@@ -14,6 +14,7 @@ import { useConfirm } from "@/components/confirm-dialog";
 import { useOfflineBlock } from "@/hooks/useOfflineBlock";
 import { formatINR } from "@/lib/utils";
 import { generateReceiptHTML } from "@/lib/print";
+import { useReceiptShop } from "@/hooks/useReceiptShop";
 import type { Customer } from "@/db/database";
 import CustomerFormDialog from "./CustomerFormDialog";
 import {
@@ -80,6 +81,7 @@ function DrawerContent({ className, children, ...props }: React.ComponentProps<t
 export default function CustomerDrawer({ open, onOpenChange, customerId, onDeleted, onUpdated }: DrawerProps) {
   const { confirm, notify } = useConfirm();
   const { offline, block, reason } = useOfflineBlock(notify);
+  const receiptShop = useReceiptShop();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [customer, setCustomer] = useState<(Customer & { email?: string | null; address?: string | null; notes?: string | null; creditLimit?: number | null }) | null>(null);
@@ -442,7 +444,7 @@ export default function CustomerDrawer({ open, onOpenChange, customerId, onDelet
                                     isCustom: it.isCustom,
                                     lineTotal: it.lineTotal,
                                   }));
-                                  const html = generateReceiptHTML(items as any, o.total, o.discount || 0, customer.name, o.orderNumber || o.id);
+                                  const html = generateReceiptHTML(items as any, o.total, o.discount || 0, customer.name, o.orderNumber || o.id, receiptShop);
                                   const w = window.open("", "_blank");
                                   if (w) { w.document.write(html); w.document.close(); w.print(); }
                                 };

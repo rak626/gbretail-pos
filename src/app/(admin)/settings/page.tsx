@@ -5,12 +5,14 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuthStore, refreshShopCounters } from "@/store/authStore";
 import { apiClient } from "@/lib/apiClient";
 import { useConfirm } from "@/components/confirm-dialog";
 import { useOfflineBlock } from "@/hooks/useOfflineBlock";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Settings, Monitor, Plus, Trash2, Store, Users, ChevronRight } from "lucide-react";
+import { Settings, Monitor, Plus, Trash2, Store, Users, ChevronRight, Receipt } from "lucide-react";
 
 type ShopUser = { id: string; name: string; email: string; role: string; isActive: boolean; counterId?: string | null };
 
@@ -45,6 +47,11 @@ export default function SettingsPage() {
   const [adding, setAdding] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // Receipt identity form (per-shop bill header). Hydrated from the shop record
+  // (login/me only carry id+name-era snapshots for old sessions).
+  const [receipt, setReceipt] = useState({ receiptName: "", gstin: "", upiId: "", phone: "", receiptFooter: "" });
+  const [receiptSaving, setReceiptSaving] = useState(false);
+  const [receiptMsg, setReceiptMsg] = useState("");
 
   const load = async () => {
     if (!user?.shopId) return;
@@ -66,6 +73,59 @@ export default function SettingsPage() {
   };
 
   useEffect(() => { load(); }, [user?.shopId]);
+
+  // Hydrate full shop incl. receipt config (authStore.shop may predate the fields)
+  useEffect(() => {
+    if (!user?.shopId) return;
+    apiClient.get<{ shop: Record<string, unknown> }>(`/api/shops/${user.shopId}`)
+      .then((d) => {
+        const s = d.shop ?? {};
+        const str = (v: unknown) => (v == null ? "" : String(v));
+        setReceipt({
+          receiptName: str(s.receiptName),
+          gstin: str(s.gstin),
+          upiId: str(s.upiId),
+          phone: str(s.phone),
+          receiptFooter: str(s.receiptFooter),
+        });
+        useAuthStore.setState({ shop: d.shop as never });
+      })
+      .catch(() => {
+        // fall back to whatever the auth snapshot carries
+        const s = (useAuthStore.getState().shop ?? {}) as Record<string, unknown>;
+        const str = (v: unknown) => (v == null ? "" : String(v));
+        setReceipt({
+          receiptName: str(s.receiptName),
+          gstin: str(s.gstin),
+          upiId: str(s.upiId),
+          phone: str(s.phone),
+          receiptFooter: str(s.receiptFooter),
+        });
+      });
+  }, [user?.shopId]);
+
+  const handleSaveReceipt = async () => {
+    if (!user?.shopId) return;
+    if (await block()) return;
+    setReceiptSaving(true);
+    setReceiptMsg("");
+    try {
+      const trim = (v: string) => (v.trim() === "" ? null : v.trim());
+      const data = await apiClient.patch<{ shop: Record<string, unknown> }>(`/api/shops/${user.shopId}`, {
+        receiptName: trim(receipt.receiptName),
+        gstin: trim(receipt.gstin),
+        upiId: trim(receipt.upiId),
+        phone: trim(receipt.phone),
+        receiptFooter: trim(receipt.receiptFooter),
+      });
+      useAuthStore.setState({ shop: data.shop as never });
+      setReceiptMsg("Receipt settings saved — new bills print with this header.");
+    } catch (e) {
+      setReceiptMsg(e instanceof Error ? e.message : "Failed to save receipt settings");
+    } finally {
+      setReceiptSaving(false);
+    }
+  };
 
   const staffOf = (counterId: string) => shopUsers.filter((u) => u.counterId === counterId);
   const detail = counters.find((c) => c.id === detailId) ?? null;
@@ -163,6 +223,41 @@ export default function SettingsPage() {
                   <Link href="/users" className="text-xs text-primary hover:underline inline-flex items-center gap-1"><Users className="w-3 h-3" /> Manage users of this shop → Users</Link>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="py-3 border-b"><CardTitle className="text-sm flex items-center gap-2"><Receipt className="w-4 h-4" /> Receipt — bill header</CardTitle></CardHeader>
+            <CardContent className="p-3 space-y-2.5">
+              <div className="grid sm:grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <Label className="text-xs">Receipt name</Label>
+                  <Input value={receipt.receiptName} onChange={(e) => setReceipt({ ...receipt, receiptName: e.target.value })} placeholder={shop?.name ?? "Shop name on bills"} disabled={!canManage || receiptSaving} className="h-9 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">GSTIN</Label>
+                  <Input value={receipt.gstin} onChange={(e) => setReceipt({ ...receipt, gstin: e.target.value.toUpperCase() })} placeholder="15-char GSTIN" disabled={!canManage || receiptSaving} className="h-9 text-sm font-mono" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">UPI id (QR payments)</Label>
+                  <Input value={receipt.upiId} onChange={(e) => setReceipt({ ...receipt, upiId: e.target.value })} placeholder="name@bank" disabled={!canManage || receiptSaving} className="h-9 text-sm font-mono" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Phone</Label>
+                  <Input value={receipt.phone} onChange={(e) => setReceipt({ ...receipt, phone: e.target.value })} placeholder="10-digit phone" disabled={!canManage || receiptSaving} className="h-9 text-sm font-mono" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Footer line</Label>
+                <Input value={receipt.receiptFooter} onChange={(e) => setReceipt({ ...receipt, receiptFooter: e.target.value })} placeholder="Thank you, visit again" disabled={!canManage || receiptSaving} className="h-9 text-sm" />
+              </div>
+              {receiptMsg && <div className="text-xs text-muted-foreground">{receiptMsg}</div>}
+              {canManage && (
+                <Button size="sm" onClick={handleSaveReceipt} disabled={receiptSaving || offline} title={offline ? reason : undefined} className="h-8">
+                  {receiptSaving ? "Saving..." : "Save receipt settings"}
+                </Button>
+              )}
+              {!canManage && <div className="text-[11px] text-muted-foreground">STAFF view — read-only. Only SHOP_OWNER can change receipt settings.</div>}
             </CardContent>
           </Card>
 

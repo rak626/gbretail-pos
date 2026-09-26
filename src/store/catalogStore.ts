@@ -1,7 +1,9 @@
 import { create } from "zustand";
-import { fetchProducts } from "@/lib/api";
+import { fetchProductsPaged } from "@/lib/api";
 import { db } from "@/db/database";
 import type { Product } from "@/types";
+
+const PAGE_SIZE = 200;
 
 type CatalogState = {
   products: Product[];
@@ -23,7 +25,17 @@ export const useCatalogStore = create<CatalogState>()((set, get) => ({
     if ((loaded && !force) || loading) return;
     set({ loading: true, error: "" });
     try {
-      const items = await fetchProducts({ limit: 200 });
+      // Page through the whole catalog — never silently truncate at 200 SKUs.
+      const all: Product[] = [];
+      let page = 1;
+      for (;;) {
+        const res = await fetchProductsPaged({ limit: PAGE_SIZE, page });
+        all.push(...res.products);
+        if (res.products.length < PAGE_SIZE || all.length >= (res.total ?? 0)) break;
+        page += 1;
+        if (page > 50) break; // 10k SKU sanity cap
+      }
+      const items = all;
       try {
         await db.products.clear();
         if (items.length) await db.products.bulkAdd(items);

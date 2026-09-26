@@ -7,6 +7,7 @@ import { generateReceiptHTML } from "@/lib/print";
 import { createOrder } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { useOnlineStore } from "@/store/onlineStore";
+import { useReceiptShop } from "@/hooks/useReceiptShop";
 import { OFFLINE_REASON } from "@/hooks/useOfflineBlock";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,7 @@ export default function PaymentModal() {
   const billKeyRef = useRef<string>("");
   const online = useOnlineStore((s) => s.online);
   const checkNow = useOnlineStore((s) => s.checkNow);
+  const receiptShop = useReceiptShop();
   const offline = !online;
   const grandTotal = calculateGrandTotal();
 
@@ -99,7 +101,7 @@ export default function PaymentModal() {
     orderNumber?: string
   ) => {
     // Never print a fake server number: unconfirmed prints are watermarked, not numbered.
-    const html = generateReceiptHTML(orderItems as any, total, disc, custName, orderNumber ?? `DRAFT — NOT SAVED`);
+    const html = generateReceiptHTML(orderItems as any, total, disc, custName, orderNumber ?? `DRAFT — NOT SAVED`, receiptShop);
     const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.write(html);
@@ -163,7 +165,7 @@ export default function PaymentModal() {
 
   const handleUPIPayment = async () => {
     if (saving || blocked()) return;
-    const url = formatUPIPaymentUrl(grandTotal);
+    const url = formatUPIPaymentUrl(grandTotal, receiptShop?.upiId, receiptShop?.receiptName || receiptShop?.name);
     window.open(url, "_blank");
     setSaving(true);
     const saved = await saveOrder("upi");

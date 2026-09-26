@@ -13,15 +13,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { formatINR } from "@/lib/utils";
 import { isLowStock, isOutOfStock, lowStockThresholdOf } from "@/lib/stock";
-import { fetchProducts, createProduct, updateProduct, deleteProduct } from "@/lib/api";
+import { fetchProductsPaged, fetchProductsMeta, createProduct, updateProduct, deleteProduct } from "@/lib/api";
 import { fetchMe } from "@/lib/authApi";
 import { useConfirm } from "@/components/confirm-dialog";
 import { useOfflineBlock } from "@/hooks/useOfflineBlock";
-import { selectCatalogCategories } from "@/store/catalogStore";
 import { useAuthStore } from "@/store/authStore";
 import type { Product } from "@/db/database";
 import SearchBox from "@/components/SearchBox";
-import { Search, Plus, Package, AlertTriangle, Boxes, Pencil, Trash2, Minus, TrendingUp, PackagePlus, Shield } from "lucide-react";
+import { Search, Plus, Package, AlertTriangle, Boxes, Pencil, Trash2, Minus, TrendingUp, PackagePlus, Shield, ChevronLeft, ChevronRight } from "lucide-react";
 
 type ProductForm = {
   name: string;
@@ -57,6 +56,12 @@ export default function InventoryPage() {
   const [category, setCategory] = useState<string>("All");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Server pagination: table shows one page, header KPIs come from /meta (never paginated)
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [meta, setMeta] = useState<{ total: number; low: number; out: number; categories: string[] }>({ total: 0, low: 0, out: 0, categories: [] });
+  const PAGE_LIMIT = 50;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_LIMIT));
   const searchRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -105,24 +110,41 @@ export default function InventoryPage() {
   const [restockSaving, setRestockSaving] = useState(false);
   const [restockError, setRestockError] = useState("");
 
-  const load = useCallback(async (searchVal?: string) => {
+  const loadMeta = useCallback(async () => {
+    try {
+      const m = await fetchProductsMeta();
+      setMeta(m);
+    } catch {
+      // header keeps last good values; table shows its own error
+    }
+  }, []);
+
+  const load = useCallback(async (searchVal?: string, cat?: string, pageNum?: number) => {
     const s = searchVal !== undefined ? searchVal : search;
+    const cc = cat !== undefined ? cat : category;
+    const pg = pageNum !== undefined ? pageNum : page;
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     setLoading(true);
     setError("");
     try {
-      const data = await fetchProducts(s ? { search: s, limit: 200 } : { limit: 200 }, { signal: controller.signal });
+      const q = s && s.trim().length >= 3 && !s.startsWith(" ") ? s.trim() : undefined;
+      const data = await fetchProductsPaged(
+        { search: q, category: cc !== "All" ? cc : undefined, limit: PAGE_LIMIT, page: pg },
+        { signal: controller.signal }
+      );
       if (controller.signal.aborted) return;
-      setProducts(data as unknown as Product[]);
+      setProducts(data.products as unknown as Product[]);
+      setTotal(data.total);
+      setPage(data.page);
     } catch (e) {
       if ((e as Error)?.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "Failed to load products");
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
-  }, [search]);
+  }, [search, category, page]);
 
   useEffect(() => {
     if (!grantChecked) return;
@@ -131,7 +153,8 @@ export default function InventoryPage() {
       return;
     }
     load();
-  }, [grantChecked, hasInventoryAccess, load]);
+    loadMeta();
+  }, [grantChecked, hasInventoryAccess, load, loadMeta]);
 
   // Same as product search: focus shortcut
   useEffect(() => {
@@ -149,23 +172,10 @@ export default function InventoryPage() {
 
   const doSearchApi = useCallback(async (trimmed: string) => {
     if (trimmed.startsWith(" ") || (trimmed && trimmed.length < 3)) return;
-    if (abortRef.current) abortRef.current.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setLoading(true);
-    setError("");
-    try {
-      const data = await fetchProducts(trimmed ? { search: trimmed, limit: 10 } : { limit: 200 }, { signal: controller.signal });
-      if (controller.signal.aborted) return;
-      setProducts(data as unknown as Product[]);
-      requestAnimationFrame(() => searchRef.current?.focus());
-    } catch (e) {
-      if ((e as Error)?.name === "AbortError") return;
-      setError(e instanceof Error ? e.message : "Failed to load products");
-    } finally {
-      if (!controller.signal.aborted) setLoading(false);
-    }
-  }, []);
+    setPage(1);
+    await load(trimmed, undefined, 1);
+    requestAnimationFrame(() => searchRef.current?.focus());
+  }, [load]);
 
   const handleImmediate = (v: string) => {
     if (v.startsWith(" ")) return;
@@ -192,27 +202,18 @@ export default function InventoryPage() {
     doSearchApi(trimmed);
   };
 
-  // Filter chips + form suggestions come from live backend data, never hardcoded
-  const availableCategories = useMemo(() => selectCatalogCategories(products as any), [products]);
+  // Chips come from shop-wide /meta (never the paginated page); table is server-filtered
+  const availableCategories = useMemo(() => ["All", "Loose Items", ...meta.categories], [meta.categories]);
 
-  const filtered = useMemo(() => {    return products.filter((p) => {
-      const q = search.trim().toLowerCase();
-      // autosuggestion after 3 letters, ignore blank/beginning space
-      const matchSearch = !q || q.length < 3 || q.startsWith(" ") ? true : p.name.toLowerCase().includes(q) || (p.barcode ?? "").toLowerCase().includes(q);
-      if (!matchSearch) return false;
-      if (category === "All") return true;
-      if (category === "Loose Items") return !!p.is_loose;
-      return p.category === category;
-    });
-  }, [products, search, category]);
+  const filtered = useMemo(() => products, [products]);
 
-  const stats = useMemo(() => {
-    const total = products.length;
-    const low = products.filter((p) => isLowStock(p)).length;
-    const out = products.filter((p) => isOutOfStock(p)).length;
-    const cats = new Set(products.map((p) => p.category)).size;
-    return { total, low, out, cats };
-  }, [products]);
+  const stats = useMemo(() => ({ total: meta.total, low: meta.low, out: meta.out, cats: meta.categories.length }), [meta]);
+
+  const pickCategory = (cat: string) => {
+    setCategory(cat);
+    setPage(1);
+    void load(undefined, cat, 1);
+  };
 
   const openAdd = () => {
     setEditing(null);
@@ -282,6 +283,7 @@ export default function InventoryPage() {
       await createProduct(payload as Record<string, unknown>);
 
       await load();
+      void loadMeta();
       setOpen(false);
       setEditing(null);
     } catch (e) {
@@ -328,6 +330,7 @@ export default function InventoryPage() {
     try {
       await updateProduct(restockProduct.id, payload as Record<string, unknown>);
       setProducts((prev) => prev.map((x) => (x.id === restockProduct.id ? { ...x, stockQuantity: newQty, ...(payload.price != null ? { price: payload.price as number } : {}), ...(payload.rate_per_kg != null ? { rate_per_kg: payload.rate_per_kg as number } : {}) } : x)));
+      void loadMeta();
       setRestockOpen(false);
       setRestockProduct(null);
     } catch (e) {
@@ -349,6 +352,7 @@ export default function InventoryPage() {
     try {
       await deleteProduct(p.id);
       await load();
+      void loadMeta();
     } catch (e) {
       await notify({ title: "Delete failed", description: e instanceof Error ? e.message : "Delete failed", danger: true });
     }
@@ -360,6 +364,7 @@ export default function InventoryPage() {
     try {
       await updateProduct(p.id, { stockQuantity: newQty });
       setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, stockQuantity: newQty } : x)));
+      void loadMeta();
     } catch (e) {
       await notify({ title: "Stock update failed", description: e instanceof Error ? e.message : "Stock update failed", danger: true });
     }
@@ -425,10 +430,10 @@ export default function InventoryPage() {
                   <TrendingUp className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium">Filtered</div>
+                  <div className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium">This page</div>
                   <div className="text-xl font-black leading-none">{filtered.length}</div>
                 </div>
-                <div className="ml-auto text-[11px] text-muted-foreground hidden sm:block">of {stats.total}</div>
+                <div className="ml-auto text-[11px] text-muted-foreground hidden sm:block">page {page} of {totalPages} • {total} total</div>
               </CardContent>
             </Card>
           </div>
@@ -459,7 +464,7 @@ export default function InventoryPage() {
                       key={cat}
                       variant={category === cat ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setCategory(cat)}
+                      onClick={() => pickCategory(cat)}
                       className="whitespace-nowrap h-8"
                     >
                       {cat}
@@ -476,7 +481,7 @@ export default function InventoryPage() {
             <CardHeader className="py-4 border-b bg-muted/10 flex-row items-center justify-between">
               <CardTitle className="text-[15px] flex items-center gap-2">
                 <Package className="w-5 h-5 text-primary" /> Product Inventory
-                <Badge variant="outline" className="ml-2 font-normal text-sm px-2.5 py-0.5">{filtered.length} items</Badge>
+                <Badge variant="outline" className="ml-2 font-normal text-sm px-2.5 py-0.5">{total} items</Badge>
               </CardTitle>
               <div className="text-sm text-muted-foreground hidden sm:block">Manage stock • Search & Add on this page</div>
             </CardHeader>
@@ -579,6 +584,21 @@ export default function InventoryPage() {
                       })}
                     </TableBody>
                   </Table>
+                </div>
+              )}
+              {totalPages > 1 && !loading && !error && (
+                <div className="flex items-center justify-between px-4 py-2.5 border-t bg-muted/20">
+                  <span className="text-[11px] text-muted-foreground tabular-nums">
+                    Page {page} of {totalPages} • {filtered.length} on page • {total} total
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button variant="outline" size="sm" className="h-8" disabled={page <= 1 || loading} onClick={() => { setPage(page - 1); void load(undefined, undefined, page - 1); }} aria-label="Previous page">
+                      <ChevronLeft className="w-4 h-4" /> Prev
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-8" disabled={page >= totalPages || loading} onClick={() => { setPage(page + 1); void load(undefined, undefined, page + 1); }} aria-label="Next page">
+                      Next <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>

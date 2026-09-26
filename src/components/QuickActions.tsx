@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useCartStore } from "@/store/cartStore";
+import { useReceiptShop } from "@/hooks/useReceiptShop";
 import { generateReceiptHTML } from "@/lib/print";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ export default function QuickActions() {
   } = useCartStore();
   const [showDisc, setShowDisc] = useState(false);
   const [val, setVal] = useState("");
+  const receiptShop = useReceiptShop();
 
   const doDisc = () => {
     const n = parseFloat(val);
@@ -40,12 +42,14 @@ export default function QuickActions() {
       isCustom: item.isCustom,
       lineTotal: item.lineTotal,
     }));
+    // Manual pre-bill print: explicitly unconfirmed (no server number invented).
     const html = generateReceiptHTML(
       orderItems,
       grandTotal,
       discount,
       undefined,
-      `ORD-${Date.now().toString(36).toUpperCase()}`,
+      `DRAFT — NOT SAVED`,
+      receiptShop,
     );
     const w = window.open("", "_blank");
     if (w) {

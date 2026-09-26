@@ -16,7 +16,16 @@ export type AuthUser = {
   shop?: { id: string; name: string } | null;
 };
 
-export type Shop = { id: string; name: string; address?: string | null };
+export type Shop = {
+  id: string;
+  name: string;
+  address?: string | null;
+  receiptName?: string | null;
+  gstin?: string | null;
+  upiId?: string | null;
+  phone?: string | null;
+  receiptFooter?: string | null;
+};
 export type Counter = { id: string; shopId: string; name: string; isActive: boolean };
 
 type AuthState = {

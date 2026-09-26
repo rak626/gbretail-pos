@@ -138,4 +138,23 @@ export const apiClient = {
     // export needs auth via header? For now return URL — caller can fetch with auth or window.open (cookie)
     return `${API_BASE}${path}${params ? qs(params) : ""}`;
   },
+  /** Authenticated file download (Authorization header, not window.open). */
+  async download(path: string, params?: Record<string, string | number | undefined | null>, filename?: string): Promise<void> {
+    const res = await fetchWithAuth(`${API_BASE}${path}${params ? qs(params) : ""}`, { method: "GET" } as RequestInit);
+    if (!res.ok) {
+      await handleResponse(res as Response);
+      return;
+    }
+    const blob = await res.blob();
+    const fallback = path.split("/").pop() || "export.csv";
+    const name = filename || (res.headers.get("Content-Disposition")?.match(/filename="?([^";]+)"?/)?.[1] ?? fallback);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  },
 };

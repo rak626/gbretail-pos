@@ -2,6 +2,21 @@ import { formatINRReceipt, formatLooseQty, getPerUnitText } from "@/lib/format";
 import { UI } from "@/config/constants";
 import type { ReceiptItem } from "@/types";
 
+/** Per-shop billing identity for receipts. Falls back to plain shop name. */
+export type ReceiptShop = {
+  name: string;
+  receiptName?: string | null;
+  address?: string | null;
+  gstin?: string | null;
+  upiId?: string | null;
+  phone?: string | null;
+  receiptFooter?: string | null;
+};
+
+function esc(s: unknown): string {
+  return String(s ?? "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 export function getOrderPdfFilename(orderId: string, date = new Date()): string {
   const yy = String(date.getFullYear()).slice(-2);
   const mm = String(date.getMonth() + 1).padStart(2, "0");
@@ -46,7 +61,8 @@ export function generateReceiptHTML(
   total: number,
   discount: number,
   customerName?: string,
-  orderId?: string
+  orderId?: string,
+  shop?: ReceiptShop | null
 ): string {
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-IN");
@@ -90,6 +106,9 @@ export function generateReceiptHTML(
     })
     .join("");
 
+  const storeName = esc(shop?.receiptName || shop?.name || "Retail Store");
+  const infoBits = [shop?.address ? esc(shop.address) : "", shop?.gstin ? `GST: ${esc(shop.gstin)}` : "", shop?.phone ? esc(shop.phone) : ""].filter(Boolean);
+  const footer = esc(shop?.receiptFooter || "Thank you, visit again!");
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>${pdfTitle}</title>
 <style>
@@ -107,14 +126,14 @@ body { font-family: 'Courier New', monospace; font-size: 11px; margin: 0; paddin
 </style></head>
 <body><div class="receipt">
   <div class="header">
-    <div class="store-name">GB RETAIL</div>
-    <div class="store-info">Local Grocery Store | GST: 07ABCDE1234F1Z5</div>
+    <div class="store-name">${storeName}</div>
+    ${infoBits.length ? `<div class="store-info">${infoBits.join(" | ")}</div>` : ""}
   </div>
-  <div class="date-time">${dateStr} | ${timeStr}${customerName ? ' | ' + customerName : ''}</div>
+  <div class="date-time">${dateStr} | ${timeStr}${customerName ? ' | ' + esc(customerName) : ''}</div>
   <div class="items">${headerRow}${itemsHTML}</div>
   ${discount > 0 ? '<div style="text-align:right;font-size:10px;">Discount: -' + formatINRReceipt(discount) + '</div>' : ''}
   <div class="total-line">Total: ${formatINRReceipt(total)}</div>
-  ${orderId ? '<div class="payment">Order: ' + orderId + '</div>' : ''}
-  <div class="footer">Thank you for shopping with us!<br>Visit again!</div>
+  ${orderId ? '<div class="payment">Order: ' + esc(orderId) + '</div>' : ''}
+  <div class="footer">${footer}</div>
 </div></body></html>`;
 }
