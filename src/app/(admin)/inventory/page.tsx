@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatINR } from "@/lib/utils";
-import { fetchProductsPaged, fetchProductsMeta, createProduct, updateProduct, deleteProduct } from "@/lib/api";
+import { fetchProductsPaged, fetchProductsMeta, createProduct, createProductsBatch, updateProduct, deleteProduct } from "@/lib/api";
 import type { ProductStockFilter, ProductSortBy } from "@/lib/api";
 import { fetchMe } from "@/lib/authApi";
 import { useConfirm } from "@/components/confirm-dialog";
@@ -402,9 +402,9 @@ export default function InventoryPage() {
     if (await block()) return;
     setImporting(true);
     setImportProgress("");
-    let done = 0;
-    let skipped = 0;
     try {
+      const items: Record<string, unknown>[] = [];
+      let skipped = 0;
       for (const r of rows) {
         const name = (r.name || "").trim();
         if (!name) { skipped++; continue; }
@@ -428,18 +428,28 @@ export default function InventoryPage() {
         };
         if (isLoose) { payload.rate_per_kg = sell; payload.price = null; }
         else { payload.price = sell; payload.rate_per_kg = null; }
+        items.push(payload);
+      }
+      setImportProgress(`Uploading ${items.length} rows…`);
+      // Chunk to the server's 500-row cap (single request for typical CSVs)
+      let done = 0;
+      const batchErrors: string[] = [];
+      for (let i = 0; i < items.length; i += 500) {
+        const chunk = items.slice(i, i + 500);
         try {
-          await createProduct(payload);
-          done++;
-        } catch {
-          skipped++;
+          const res = await createProductsBatch(chunk);
+          done += (res as any).count ?? chunk.length;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "Batch failed";
+          batchErrors.push(`Rows ${i + 1}-${i + chunk.length}: ${msg}`);
+          skipped += chunk.length;
         }
-        setImportProgress(`${done} imported • ${skipped} skipped (${done + skipped}/${rows.length})`);
+        setImportProgress(`${done} imported • ${skipped} skipped (${Math.min(i + 500, items.length)}/${items.length})`);
       }
       await load({ pageNum: 1 });
       void loadMeta();
       setImportOpen(false);
-      await notify({ title: `Import done: ${done} added`, description: skipped ? `${skipped} rows skipped (bad price/barcode duplicate)` : "All rows imported." });
+      await notify({ title: `Import done: ${done} added`, description: [skipped ? `${skipped} rows skipped (bad price/barcode duplicate)` : "All rows imported.", ...batchErrors].join(" ") });
     } finally {
       setImporting(false);
       setImportProgress("");

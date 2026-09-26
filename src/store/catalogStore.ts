@@ -10,8 +10,10 @@ type CatalogState = {
   loaded: boolean;
   loading: boolean;
   error: string;
-  /** Backend is the source of truth; Dexie holds the last good copy for offline billing. */
+  /** Backend is the source of truth; Dexie holds the last good copy as a speed cache (online-only). */
   loadCatalog: (force?: boolean) => Promise<void>;
+  /** Mark stale after inventory mutations — next loadCatalog(true) refetches. */
+  invalidate: () => void;
 };
 
 export const useCatalogStore = create<CatalogState>()((set, get) => ({
@@ -19,6 +21,8 @@ export const useCatalogStore = create<CatalogState>()((set, get) => ({
   loaded: false,
   loading: false,
   error: "",
+
+  invalidate: () => set({ loaded: false }),
 
   loadCatalog: async (force = false) => {
     const { loaded, loading } = get();

@@ -25,9 +25,9 @@ export default function PosTopStrip() {
   }, [startOnline, stopOnline]);
 
   useEffect(() => {
-    const tick = () => setTime(new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }));
+    const tick = () => setTime(new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }));
     tick();
-    const t = setInterval(tick, 1000);
+    const t = setInterval(tick, 30_000);
     return () => clearInterval(t);
   }, []);
 

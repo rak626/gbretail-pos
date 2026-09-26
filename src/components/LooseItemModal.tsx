@@ -31,7 +31,7 @@ export default function LooseItemModal() {
       return;
     }
     if (isEditMode && items[editingLooseIndex!]) {
-      const it = items[editingLooseIndex!];
+      const it = items[editingLooseIndex!]!;
       const grams = it.weight ? Math.round(it.weight * 1000) : 0;
       const p = it.lineTotal || 0;
       if (grams > 0) {

@@ -38,11 +38,12 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     }
     // prevent re-running validation loop when user updates — run once per mount/path
     let cancelled = false;
-    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-    const { user: currentUser } = useAuthStore.getState();
+    const { user: currentUser, accessToken } = useAuthStore.getState();
     // Validate when signed out OR when the last check is stale — grants, roles and
     // shop assignment refresh within REVALIDATE_MS instead of lingering till reload.
-    const shouldValidate = !currentUser || !token || Date.now() - lastValidatedRef.current > REVALIDATE_MS;
+    // Cookie auth works without a memory token (httpOnly), so token absence alone
+    // doesn't force validation — missing user does.
+    const shouldValidate = !currentUser || Date.now() - lastValidatedRef.current > REVALIDATE_MS;
 
     const doValidate = async () => {
       try {
@@ -52,13 +53,11 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         const u = data.user as any;
         const shop = (data as any).shop ?? null;
         const counters = (data as any).counters ?? [];
-        const newToken = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-        const storedRefresh = typeof window !== "undefined" ? localStorage.getItem("refreshToken") : null;
         // Only update auth if user actually changed or missing, to avoid loop
         const state = useAuthStore.getState();
         const existingUserId = state.user?.id;
         if (!existingUserId || existingUserId !== u.id) {
-          state.setAuth(newToken || token || "", u, shop, counters, storedRefresh ?? state.refreshToken ?? null);
+          state.setAuth(state.accessToken ?? accessToken ?? "", u, shop, counters);
         } else {
           // Same user: merge the FRESH profile (role, canManageInventory, counter,
           // shop assignment) so revoked grants apply without a reload.

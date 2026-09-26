@@ -37,16 +37,39 @@ export async function fetchProductsMeta(opts?: { signal?: AbortSignal }) {
 
 export async function createProduct(payload: Record<string, unknown>) {
   const data = await apiClient.post<{ product: unknown }>("/api/products", payload);
+  try {
+    const { useCatalogStore } = await import("@/store/catalogStore");
+    useCatalogStore.getState().invalidate();
+  } catch { /* catalog cache best-effort */ }
   return data.product;
+}
+
+/** Fast CSV import path — single request for ≤500 rows (replaces sequential POSTs). */
+export async function createProductsBatch(items: Record<string, unknown>[], shopId?: string) {
+  const data = await apiClient.post<{ products: unknown[]; count: number }>("/api/products/batch", { items, ...(shopId ? { shopId } : {}) });
+  try {
+    const { useCatalogStore } = await import("@/store/catalogStore");
+    useCatalogStore.getState().invalidate();
+  } catch { /* best-effort */ }
+  return data;
 }
 
 export async function updateProduct(id: string, payload: Record<string, unknown>) {
   const data = await apiClient.patch<{ product: unknown }>(`/api/products/${id}`, payload);
+  try {
+    const { useCatalogStore } = await import("@/store/catalogStore");
+    useCatalogStore.getState().invalidate();
+  } catch { /* best-effort */ }
   return data.product;
 }
 
 export async function deleteProduct(id: string) {
-  return apiClient.delete<{ success: boolean }>(`/api/products/${id}`);
+  const res = await apiClient.delete<{ success: boolean }>(`/api/products/${id}`);
+  try {
+    const { useCatalogStore } = await import("@/store/catalogStore");
+    useCatalogStore.getState().invalidate();
+  } catch { /* best-effort */ }
+  return res;
 }
 
 // Customers
@@ -208,17 +231,7 @@ export async function fetchAnalyticsSummary(params?: { preset?: string; from?: s
   });
 }
 
-export function getAnalyticsExportUrl(params?: { preset?: string; from?: string; to?: string; granularity?: string; format?: string }) {
-  return apiClient.exportUrl("/api/analytics/export", {
-    preset: params?.preset,
-    from: params?.from,
-    to: params?.to,
-    granularity: params?.granularity,
-    format: params?.format,
-  });
-}
-
-/** Authenticated CSV/JSON export download (header auth — works without cookies). */
+/** Authenticated CSV/JSON export download (cookies + header — never window.open). */
 export async function downloadAnalyticsExport(params?: { preset?: string; from?: string; to?: string; granularity?: string; format?: string }) {
   return apiClient.download("/api/analytics/export", {
     preset: params?.preset,

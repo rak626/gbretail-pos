@@ -1,7 +1,9 @@
 import type { Product } from "@/types";
 
 function esc(v: unknown): string {
-  const s = v == null ? "" : String(v);
+  let s = v == null ? "" : String(v);
+  // Formula injection: prefix cells starting with =,+,-,@,tab/CR with '
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
@@ -41,6 +43,7 @@ export type ImportPreview = {
 /** Minimal CSV parser for New SKU bulk preview (comma-separated, quoted supported). */
 export function parseInventoryCsv(text: string): ImportPreview {
   const errors: string[] = [];
+  if (text.length > 1_000_000) return { rows: [], errors: ["File too large (max 1MB) — split into smaller files"] };
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (lines.length < 2) return { rows: [], errors: ["CSV needs a header row + at least 1 product row"] };
   const split = (line: string): string[] => {
@@ -61,10 +64,10 @@ export function parseInventoryCsv(text: string): ImportPreview {
     out.push(cur.trim());
     return out;
   };
-  const headers = split(lines[0]).map((h) => h.toLowerCase());
+  const headers = split(lines[0]!).map((h) => h.toLowerCase());
   const rows: Array<Record<string, string>> = [];
   for (let i = 1; i < Math.min(lines.length, 501); i++) {
-    const cells = split(lines[i]);
+    const cells = split(lines[i]!);
     const row: Record<string, string> = {};
     headers.forEach((h, idx) => { row[h] = cells[idx] ?? ""; });
     if (!row.name) {

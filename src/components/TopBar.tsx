@@ -25,8 +25,10 @@ export default function TopBar() {
 
 
   useEffect(() => {
-    setTime(new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }));
-    const t = setInterval(() => setTime(new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })), 1000);
+    const fmt = () => new Date().toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true });
+    setTime(fmt());
+    // Minute precision is enough for a header clock — 30s halves re-renders vs 1s.
+    const t = setInterval(() => setTime(fmt()), 30_000);
     startOnline();
     return () => { clearInterval(t); stopOnline(); };
   }, [startOnline, stopOnline]);

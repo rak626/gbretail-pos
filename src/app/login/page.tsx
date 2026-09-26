@@ -34,7 +34,12 @@ export default function LoginPage() {
   const takeNext = (): string | null => {
     try {
       const n = new URLSearchParams(window.location.search).get("next");
-      return n && n.startsWith("/") && !n.startsWith("/login") ? n : null;
+      // Allow only same-origin absolute paths with a single leading slash.
+      // Rejects //evil.com (protocol-relative), /\\evil, absolute URLs, and backslashes.
+      if (!n || !n.startsWith("/") || n.startsWith("//") || n.startsWith("/\\")) return null;
+      if (n.startsWith("/login")) return null;
+      if (/[:\\]/.test(n)) return null;
+      return n;
     } catch {
       return null;
     }
@@ -52,18 +57,17 @@ export default function LoginPage() {
     return () => useOnlineStore.getState().stop();
   }, []);
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-    if (token) {
-      fetchMe()
-        .then((data) => {
-          // already valid — super admin has no billing, land on admin
-          const role = (data as any)?.user?.role;
-          router.replace(takeNext() ?? (role === "SUPER_ADMIN" ? "/admin" : "/"));
-        })
-        .catch(() => {
-          // token invalid, stay
-        });
-    }
+    // Already logged in (cookie session valid) → bounce to app.
+    // No localStorage check — auth is cookie + memory token only.
+    fetchMe()
+      .then((data) => {
+        // already valid — super admin has no billing, land on admin
+        const role = (data as any)?.user?.role;
+        router.replace(takeNext() ?? (role === "SUPER_ADMIN" ? "/admin" : "/"));
+      })
+      .catch(() => {
+        // no session, stay on login
+      });
   }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -96,7 +100,7 @@ export default function LoginPage() {
         counterList = [];
       }
 
-      setAuth(res.accessToken, user, shop, counterList as any, (res as any).refreshToken ?? null);
+      setAuth(res.accessToken, user, shop, counterList as any);
 
       const assignedName = (res as any).counter?.name ?? user.counter?.name;
       setInfo(

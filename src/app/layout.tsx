@@ -1,14 +1,12 @@
 import type { Metadata } from "next";
-import { Inter, IBM_Plex_Sans, Source_Sans_3 } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ConfirmProvider } from "@/components/confirm-dialog";
 import AuthGuard from "@/components/AuthGuard";
-
-const sourceSans3Heading = Source_Sans_3({subsets:['latin'],variable:'--font-heading'});
-
-const ibmPlexSans = IBM_Plex_Sans({subsets:['latin'],variable:'--font-sans'});
+import AuthStoreBridge from "@/components/AuthStoreBridge";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
@@ -18,7 +16,7 @@ export const metadata: Metadata = {
     template: "%s | GB Retail",
   },
   description:
-    "Offline-first POS for GB Retail — bill in seconds, manage stock, track Khata ledger and see real profit analytics. Works on 720p & 1080p kiosks, online or offline.",
+    "Online POS for GB Retail — bill in seconds, manage stock, track Khata ledger and see real profit analytics.",
   applicationName: "GB Retail",
   keywords: ["GB Retail", "POS", "Kirana", "Grocery", "Inventory", "Khata", "Ledger", "Billing", "Analytics"],
   authors: [{ name: "GB Retail" }],
@@ -47,11 +45,14 @@ export const viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={cn("h-full", "font-sans", ibmPlexSans.variable, sourceSans3Heading.variable)} suppressHydrationWarning>
+    <html lang="en" className={cn("h-full", "font-sans")} suppressHydrationWarning>
       <body className={`h-full flex flex-col ${inter.className}`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <ConfirmProvider>
-            <AuthGuard>{children}</AuthGuard>
+            <ErrorBoundary>
+              <AuthStoreBridge />
+              <AuthGuard>{children}</AuthGuard>
+            </ErrorBoundary>
           </ConfirmProvider>
         </ThemeProvider>
       </body>

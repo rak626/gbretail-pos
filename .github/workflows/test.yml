@@ -1,0 +1,24 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  # E2E is local-only: it needs the dev backend (../gbretail-backend)
+  # running seeded on :4000. Run: `npm run test:e2e` with
+  # PLAYWRIGHT_API_URL=http://localhost:4000 (see e2e/ + AGENTS.md).
+  # It is intentionally not in CI — backend lives in a separate repo
+  # (rak626/gbretail-backend) and cross-repo checkout needs a PAT.

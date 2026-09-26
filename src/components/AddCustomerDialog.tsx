@@ -249,7 +249,7 @@ export default function AddCustomerDialog() {
       // Dropdown open → select highlighted suggestion (never create-new here).
       if (open && activeIdx >= 0 && activeIdx < displayList.length) {
         e.preventDefault();
-        handleSelect(displayList[activeIdx]);
+        handleSelect(displayList[activeIdx]!);
         return;
       }
       if (name.trim() && !saving) {

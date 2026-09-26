@@ -182,7 +182,7 @@ export function useProductSearch(opts?: { onAdd?: () => void }) {
       } else if (e.key === "Enter") {
         if (activeIndex >= 0 && activeIndex < results.length) {
           e.preventDefault();
-          add(results[activeIndex]);
+          add(results[activeIndex]!);
         }
       } else if (e.key === "Escape") {
         e.preventDefault();

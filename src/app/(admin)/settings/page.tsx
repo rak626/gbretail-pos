@@ -22,7 +22,7 @@ export function nextCounterName(existing: { name: string }[]): string {
   const taken = new Set<number>();
   for (const c of existing) {
     const m = /^\s*counter\s+(\d+)\s*$/i.exec(c.name ?? "");
-    if (m) taken.add(parseInt(m[1], 10));
+    if (m) taken.add(parseInt(m[1]!, 10));
   }
   let n = 1;
   while (taken.has(n)) n += 1;
@@ -31,8 +31,8 @@ export function nextCounterName(existing: { name: string }[]): string {
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  if (parts.length === 1) return (parts[0] ?? "").slice(0, 2).toUpperCase();
+  return ((parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")).toUpperCase();
 }
 
 export default function SettingsPage() {
