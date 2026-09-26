@@ -102,13 +102,17 @@ export async function createOrder(payload: {
   return data.order;
 }
 
-export async function fetchOrders(params?: { page?: number; limit?: number; customerId?: string; search?: string; date?: string }) {
+export async function fetchOrders(params?: { page?: number; limit?: number; customerId?: string; search?: string; customer?: string; date?: string; from?: string; to?: string; paymentMethod?: string }) {
   return apiClient.get<{ orders: Order[]; total: number; page: number }>("/api/orders", {
     page: params?.page,
     limit: params?.limit,
     customerId: params?.customerId,
     search: params?.search,
+    customer: params?.customer,
     date: params?.date,
+    from: params?.from,
+    to: params?.to,
+    paymentMethod: params?.paymentMethod,
   });
 }
 

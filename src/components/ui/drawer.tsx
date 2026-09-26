@@ -38,7 +38,7 @@ function DrawerContent({
   children,
   ...props
 }: DrawerPrimitive.Popup.Props & {
-  side?: "left" | "right"
+  side?: "left" | "right" | "bottom"
   showCloseButton?: boolean
 }) {
   return (
@@ -51,7 +51,9 @@ function DrawerContent({
           "fixed top-0 z-50 flex h-full w-[clamp(360px,36vw,600px)] max-w-[calc(100%-2rem)] flex-col bg-popover text-sm text-popover-foreground ring-1 ring-foreground/10 duration-200 outline-none data-open:animate-in data-closed:animate-out",
             side === "left"
               ? "left-0 rounded-r-2xl border-r data-open:slide-in-from-left data-closed:slide-out-to-left"
-              : "right-0 rounded-l-2xl border-l data-open:slide-in-from-right data-closed:slide-out-to-right",
+              : side === "bottom"
+                ? "inset-x-0 bottom-0 top-auto mx-auto h-auto max-h-[88vh] w-full max-w-none rounded-t-2xl border-t data-open:slide-in-from-bottom data-closed:slide-out-to-bottom sm:max-w-[520px]"
+                : "right-0 rounded-l-2xl border-l data-open:slide-in-from-right data-closed:slide-out-to-right",
             className
           )}
           {...props}

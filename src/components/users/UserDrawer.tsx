@@ -133,21 +133,27 @@ export default function UserDrawer({
           <div>
             <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-2">Status</div>
             {canToggleStatus && target ? (
-              <Button
-                size="sm"
-                variant={target.isActive ? "destructive" : "default"}
-                onClick={onToggleStatus}
-                disabled={busy}
-                className="w-full h-10 gap-1.5"
-              >
-                <Power className="w-4 h-4" /> {target.isActive ? "Deactivate account" : "Activate account"}
-              </Button>
+              <>
+                <div className="rounded-xl border bg-muted/30 px-3 py-2 flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${target.isActive ? "bg-emerald-500" : "bg-rose-500"}`} />
+                  <span className="text-[13px] font-medium">{target.isActive ? "Active" : "Disabled"}</span>
+                  <Button
+                    size="sm"
+                    variant={target.isActive ? "destructive" : "default"}
+                    onClick={onToggleStatus}
+                    disabled={busy}
+                    className="h-8 gap-1.5 ml-auto shrink-0"
+                  >
+                    <Power className="w-3.5 h-3.5" /> {target.isActive ? "Deactivate" : "Activate"}
+                  </Button>
+                </div>
+                {statusHint && <div className="text-[11px] text-muted-foreground mt-1.5">{statusHint}</div>}
+              </>
             ) : (
               <div className="rounded-xl border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
                 {statusHint || (target?.isActive ? "Account is active." : "Account is disabled.")}
               </div>
             )}
-            {canToggleStatus && statusHint && <div className="text-[11px] text-muted-foreground mt-1.5">{statusHint}</div>}
           </div>
 
           {/* Counter (staff only) */}
@@ -155,13 +161,13 @@ export default function UserDrawer({
             <div>
               <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-2">Counter</div>
               {canAssignCounter ? (
-                <div className="grid grid-cols-2 gap-1.5">
+                <div className="flex flex-wrap gap-1.5">
                   <button
                     type="button"
                     onClick={() => onAssignCounter(null)}
                     disabled={busy}
                     className={cn(
-                      "h-9 rounded-xl border text-[12px] font-semibold transition-colors",
+                      "h-9 px-4 rounded-full border text-[12px] font-semibold transition-colors",
                       !target.counterId
                         ? "bg-primary text-primary-foreground border-primary"
                         : "bg-background hover:border-primary/40"
@@ -177,7 +183,7 @@ export default function UserDrawer({
                       disabled={busy}
                       title={c.name}
                       className={cn(
-                        "h-9 rounded-xl border text-[12px] font-semibold truncate px-2 transition-colors",
+                        "h-9 px-4 rounded-full border text-[12px] font-semibold truncate max-w-40 transition-colors",
                         target.counterId === c.id
                           ? "bg-primary text-primary-foreground border-primary"
                           : "bg-background hover:border-primary/40"
@@ -202,7 +208,7 @@ export default function UserDrawer({
             <div>
               <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-2">Inventory access</div>
               {canToggleStock ? (
-                <div className="grid grid-cols-2 gap-1.5">
+                <div className="inline-flex rounded-full border bg-muted/20 p-0.5 gap-0.5">
                   {(["ON", "OFF"] as const).map((v) => {
                     const on = v === "ON";
                     const active = Boolean(target.canManageInventory) === on;
@@ -213,13 +219,13 @@ export default function UserDrawer({
                         onClick={onToggleStock}
                         disabled={busy || active}
                         className={cn(
-                          "h-9 rounded-xl border text-[12px] font-semibold transition-colors",
+                          "h-8 px-4 rounded-full text-[12px] font-semibold transition-colors",
                           active
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-background hover:border-primary/40 disabled:opacity-60"
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground disabled:opacity-60"
                         )}
                       >
-                        Stock: {v}
+                        {v}
                       </button>
                     );
                   })}
@@ -242,7 +248,7 @@ export default function UserDrawer({
               size="sm"
               onClick={onDelete}
               disabled={busy || isSelf}
-              className="w-full h-10 gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10 border border-destructive/20"
+              className="w-fit px-4 h-9 gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10 border border-destructive/20"
               title={isSelf ? "Cannot delete yourself" : "Delete user"}
             >
               <Trash2 className="w-4 h-4" /> Delete account

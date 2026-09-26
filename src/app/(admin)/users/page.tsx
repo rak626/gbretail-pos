@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { useAuthStore } from "@/store/authStore";
 import { apiClient } from "@/lib/apiClient";
 import { fetchCounters } from "@/lib/authApi";
@@ -19,6 +20,16 @@ import { useConfirm } from "@/components/confirm-dialog";
 type UserRow = { id: string; email: string; name: string; role: string; shopId: string | null; isActive: boolean; canManageInventory?: boolean; counterId?: string | null; shop?: { id: string; name: string } | null; createdAt?: string };
 type ShopOpt = { id: string; name: string };
 type CounterOpt = { id: string; name: string };
+
+const ROLE_META: Record<string, { label: string; dot: string }> = {
+  STAFF: { label: "Staff", dot: "bg-sky-500" },
+  SHOP_OWNER: { label: "Owner", dot: "bg-amber-500" },
+  SUPER_ADMIN: { label: "Super Admin", dot: "bg-rose-500" },
+};
+
+function initials(name: string) {
+  return name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+}
 
 export default function UsersPage() {
   const user = useAuthStore((s) => s.user);
@@ -325,57 +336,123 @@ export default function UsersPage() {
             </DialogContent>
           </Dialog>
 
-          <Card>
-            <CardHeader className="py-3 border-b flex-row items-center justify-between"><CardTitle className="text-sm flex items-center gap-2"><Users className="w-4 h-4" /> {isSuper ? "All Users" : "Shop Users"} ({users.length})</CardTitle></CardHeader>
+          <Card className="py-0 overflow-hidden">
+            <CardHeader className="py-2.5 px-4 border-b flex flex-row items-center justify-between">
+              <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" /> {isSuper ? "All Users" : "Shop Users"} {loading && <span className="text-xs font-normal text-muted-foreground">loading…</span>}
+              </CardTitle>
+              {!loading && users.length > 0 && (
+                <span className="text-[11px] text-muted-foreground tabular-nums">{users.length} user{users.length === 1 ? "" : "s"}</span>
+              )}
+            </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-auto max-h-[60vh] border-t">
-                <table className="w-full text-xs">
-                  <thead className="bg-muted/30 sticky top-0"><tr><th className="text-left p-2">Name</th><th className="text-left p-2">Email</th><th className="text-left p-2">Role</th><th className="text-left p-2">Shop</th><th className="text-left p-2">Counter</th><th className="text-left p-2">Stock</th><th className="text-left p-2">Status</th><th className="w-10"></th></tr></thead>
-                  <tbody>
-                    {users.map((u) => (
-                      <tr key={u.id} className="border-t hover:bg-muted/40 cursor-pointer transition-colors" onClick={() => setSelectedId(u.id)} title="Open user details">
-                        <td className="p-2 font-medium">
-                          {u.name}
-                          {u.id === user.id && <span className="ml-1.5 text-[10px] font-bold text-muted-foreground">(YOU)</span>}
-                        </td>
-                        <td className="p-2 font-mono text-[11px]">{u.email}</td>
-                        <td className="p-2"><Badge variant="outline" className="text-[10px]">{u.role}</Badge></td>
-                        <td className="p-2 font-mono text-[11px]">{shopNameOf(u)}</td>
-                        <td className="p-2">
-                          {u.role === "STAFF" ? (
-                            u.counterId ? (
-                              <span className="text-[11px] font-medium">{counterNameOf(u) ?? "—"}</span>
-                            ) : (
-                              <span className="inline-block h-5 px-2 leading-5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground border border-border" title="Falls back to emptiest counter at login">Auto</span>
-                            )
-                          ) : (
-                            <span className="text-[10px] text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="p-2">
-                          {u.role === "STAFF" ? (
-                            <span className={`inline-block h-5 px-2 leading-5 rounded-full text-[10px] font-bold border ${u.canManageInventory ? "bg-primary/10 text-primary border-primary/30" : "bg-muted text-muted-foreground border-border"}`}>
-                              {u.canManageInventory ? "Stock: ON" : "Stock: OFF"}
-                            </span>
-                          ) : u.role === "SHOP_OWNER" ? (
-                            <span className="text-[10px] font-semibold text-primary">Full</span>
-                          ) : (
-                            <span className="text-[10px] text-muted-foreground">—</span>
-                          )}
-                        </td>
-                        <td className="p-2">
-                          <span className={`inline-block h-5 px-2 leading-5 rounded-full text-[10px] font-bold border ${u.isActive ? "bg-primary/10 text-primary border-primary/30" : "bg-destructive/10 text-destructive border-destructive/30"}`}>
-                            {u.isActive ? "Active" : "Disabled"}
-                          </span>
-                        </td>
-                        <td className="p-2 text-right">
-                          <ChevronRight className="w-4 h-4 ml-auto text-muted-foreground" />
-                        </td>
-                      </tr>
-                    ))}
-                    {users.length === 0 && !loading && <tr><td colSpan={8} className="p-6 text-center text-sm text-muted-foreground">No users found</td></tr>}
-                  </tbody>
-                </table>
+              <div className="overflow-auto max-h-[60vh]">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-card z-10 shadow-[0_1px_0_var(--border)]">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="text-[11px] uppercase tracking-wider font-semibold">User</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-wider font-semibold w-32">Role</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Shop</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Counter</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-wider font-semibold w-28">Stock</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-wider font-semibold w-28">Status</TableHead>
+                      <TableHead className="w-8" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading && users.length === 0 ? (
+                      Array.from({ length: 4 }).map((_, i) => (
+                        <TableRow key={`sk-${i}`} className="hover:bg-transparent">
+                          <TableCell colSpan={7}><div className="h-11 rounded-md bg-muted/60 animate-pulse" /></TableCell>
+                        </TableRow>
+                      ))
+                    ) : users.length === 0 ? (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={7}>
+                          <div className="p-12 text-center">
+                            <Users className="w-8 h-8 mx-auto text-muted-foreground/50" />
+                            <div className="text-sm text-muted-foreground mt-3">No users found. Create one with the button above.</div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      users.map((u) => {
+                        const role = ROLE_META[u.role] ?? { label: u.role, dot: "bg-muted-foreground" };
+                        const isSelf = u.id === user.id;
+                        return (
+                          <TableRow
+                            key={u.id}
+                            className="hover:bg-primary/[0.04] cursor-pointer group"
+                            onClick={() => setSelectedId(u.id)}
+                            tabIndex={0}
+                            onKeyDown={(e) => { if (e.key === "Enter") setSelectedId(u.id); }}
+                            title="Open user details"
+                          >
+                            {/* User — avatar + name + email */}
+                            <TableCell className="py-2.5">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[11px] font-bold text-primary shrink-0">
+                                  {initials(u.name || "?")}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-[13px] font-semibold leading-tight truncate flex items-center gap-1.5">
+                                    {u.name}
+                                    {isSelf && <Badge variant="secondary" className="text-[10px] h-4 px-1.5 rounded-full">YOU</Badge>}
+                                  </div>
+                                  <div className="text-[11px] text-muted-foreground font-mono truncate mt-0.5">{u.email}</div>
+                                </div>
+                              </div>
+                            </TableCell>
+                            {/* Role */}
+                            <TableCell className="py-2.5">
+                              <span className="inline-flex items-center gap-1.5 text-[13px] font-medium">
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${role.dot}`} />
+                                {role.label}
+                              </span>
+                            </TableCell>
+                            {/* Shop */}
+                            <TableCell className="py-2.5 text-[13px] text-muted-foreground">{shopNameOf(u)}</TableCell>
+                            {/* Counter */}
+                            <TableCell className="py-2.5">
+                              {u.role === "STAFF" ? (
+                                u.counterId ? (
+                                  <span className="text-[13px] font-medium">{counterNameOf(u) ?? "—"}</span>
+                                ) : (
+                                  <span className="inline-block h-5 px-2 leading-5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground border border-border" title="Falls back to emptiest counter at login">Auto</span>
+                                )
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            {/* Stock access */}
+                            <TableCell className="py-2.5">
+                              {u.role === "STAFF" ? (
+                                <span className="inline-flex items-center gap-1.5 text-[13px]">
+                                  <span className={`w-2 h-2 rounded-full shrink-0 ${u.canManageInventory ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
+                                  <span className={u.canManageInventory ? "font-medium" : "text-muted-foreground"}>{u.canManageInventory ? "ON" : "OFF"}</span>
+                                </span>
+                              ) : u.role === "SHOP_OWNER" ? (
+                                <span className="text-[13px] font-medium text-primary">Full</span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            {/* Status */}
+                            <TableCell className="py-2.5">
+                              <span className="inline-flex items-center gap-1.5 text-[13px] font-medium">
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${u.isActive ? "bg-emerald-500" : "bg-rose-500"}`} />
+                                {u.isActive ? "Active" : "Disabled"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-2.5 pr-3">
+                              <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </CardContent>
           </Card>

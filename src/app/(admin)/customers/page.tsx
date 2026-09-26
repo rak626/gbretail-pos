@@ -25,7 +25,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
-  User,
   Edit2,
   Eye,
 } from "lucide-react";
@@ -38,6 +37,16 @@ const SORT_OPTIONS = [
   { value: "balance", label: "Highest dues" },
   { value: "lastOrderAt", label: "Recently ordered" },
 ] as const;
+
+const DUES_LABELS: Record<string, string> = {
+  all: "All dues",
+  with: "With dues",
+  without: "No dues",
+};
+
+function initials(name: string) {
+  return name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+}
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -207,8 +216,8 @@ export default function CustomersPage() {
                 <div className="w-10 h-10 rounded-xl bg-primary/50 text-white flex items-center justify-center shrink-0"><TrendingUp className="w-5 h-5" /></div>
                 <div className="min-w-0 flex-1">
                   <div className="text-[11px] uppercase tracking-wide font-semibold text-primary dark:text-primary">Top spender</div>
-                  <div className="text-sm font-black leading-none truncate">{stats?.topSpender?.name ?? "—"}</div>
-                  <div className="text-[11px] font-bold text-primary dark:text-primary">{stats?.topSpender ? formatINR(stats.topSpender.totalSpent).replace(".00","") : "No data"}</div>
+                  <div className="text-sm font-black leading-none truncate tabular-nums" title={stats?.topSpender?.name ?? ""}>{stats?.topSpender?.name ?? "—"}</div>
+                  <div className="text-[11px] font-bold text-primary dark:text-primary tabular-nums">{stats?.topSpender ? formatINR(stats.topSpender.totalSpent).replace(".00","") : "No data"}</div>
                 </div>
               </CardContent>
             </Card>
@@ -233,7 +242,7 @@ export default function CustomersPage() {
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                   <Select value={hasBalance} onValueChange={(v) => handleHasBalance(v ?? "all")}>
-                    <SelectTrigger size="sm" className="h-9 min-w-[130px]"><SelectValue /></SelectTrigger>
+                    <SelectTrigger size="sm" className="h-9 min-w-[130px]"><SelectValue>{DUES_LABELS[hasBalance] ?? "All dues"}</SelectValue></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All dues</SelectItem>
                       <SelectItem value="with">With dues</SelectItem>
@@ -241,7 +250,7 @@ export default function CustomersPage() {
                     </SelectContent>
                   </Select>
                   <Select value={sortBy} onValueChange={(v) => handleSort(v ?? "createdAt")}>
-                    <SelectTrigger size="sm" className="h-9 min-w-[150px]"><SelectValue /></SelectTrigger>
+                    <SelectTrigger size="sm" className="h-9 min-w-[150px]"><SelectValue>{SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? "Sort"}</SelectValue></SelectTrigger>
                     <SelectContent>
                       {SORT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                     </SelectContent>
@@ -254,12 +263,17 @@ export default function CustomersPage() {
 
           {/* table */}
           <Card className="py-0 overflow-hidden">
-            <CardHeader className="py-3 border-b flex-row items-center justify-between bg-muted/20">
-              <CardTitle className="text-sm flex items-center gap-2">
+            <CardHeader className="py-2.5 px-4 border-b flex flex-row items-center justify-between">
+              <CardTitle className="text-[13px] font-semibold flex items-center gap-2">
                 <Users className="w-4 h-4 text-primary" /> Customers {loading && <span className="text-xs font-normal text-muted-foreground">loading...</span>}
-                <Badge variant="outline" className="font-normal text-xs">{customers.length} {customers.length===1?"customer":"customers"} {total>customers.length ? `• ${total} total` : ""}</Badge>
               </CardTitle>
-              <div className="text-xs text-muted-foreground hidden sm:block">Only name is required • click row to view</div>
+              {!loading && total > 0 ? (
+                <span className="text-[11px] text-muted-foreground tabular-nums">
+                  {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total}
+                </span>
+              ) : (
+                <span className="text-[11px] text-muted-foreground hidden sm:block">Only name is required • click row to view</span>
+              )}
             </CardHeader>
             <CardContent className="p-0">
               {error ? (
@@ -279,55 +293,67 @@ export default function CustomersPage() {
               ) : (
                 <div className="overflow-auto max-h-[56vh]">
                   <Table>
-                    <TableHeader className="sticky top-0 bg-card shadow-sm z-10">
-                      <TableRow className="hover:bg-transparent h-10">
-                        <TableHead className="text-xs">Customer</TableHead>
-                        <TableHead className="text-xs hidden sm:table-cell">Phone</TableHead>
-                        <TableHead className="text-xs text-center">Orders</TableHead>
-                        <TableHead className="text-xs text-right">Total spent</TableHead>
-                        <TableHead className="text-xs text-right hidden md:table-cell">Avg order</TableHead>
-                        <TableHead className="text-xs text-right">Dues</TableHead>
-                        <TableHead className="text-xs hidden lg:table-cell">Last order</TableHead>
-                        <TableHead className="text-xs text-right">View</TableHead>
+                    <TableHeader className="sticky top-0 bg-card z-10 shadow-[0_1px_0_var(--border)]">
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="text-[11px] uppercase tracking-wider font-semibold">Customer</TableHead>
+                        <TableHead className="text-[11px] uppercase tracking-wider font-semibold hidden sm:table-cell">Phone</TableHead>
+                        <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-center">Orders</TableHead>
+                        <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Total spent</TableHead>
+                        <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right hidden md:table-cell">Avg order</TableHead>
+                        <TableHead className="text-[11px] uppercase tracking-wider font-semibold text-right">Dues</TableHead>
+                        <TableHead className="text-[11px] uppercase tracking-wider font-semibold hidden lg:table-cell">Last order</TableHead>
+                        <TableHead className="w-8" />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {customers.map((c) => {
-                        const avg = c.totalOrders ? (c.totalSpent ?? 0) / c.totalOrders : 0;
-                        const isDue = (c.balance ?? 0) > 0;
-                        return (
-                          <TableRow key={c.id} className="hover:bg-muted/40 cursor-pointer h-[56px]" onClick={() => openDrawer(c.id)}>
-                            <TableCell className="py-2">
-                              <div className="font-semibold text-sm leading-tight truncate max-w-[160px] flex items-center gap-1">
-                                <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> {c.name}
-                              </div>
-                              <div className="text-[11px] text-muted-foreground sm:hidden flex items-center gap-1">
-                                {c.phone ? <><Phone className="w-3 h-3" /> {c.phone}</> : "No phone"}
-                              </div>
-                              {(c as any).email && <div className="text-[11px] text-muted-foreground hidden sm:block truncate max-w-[160px]">{(c as any).email}</div>}
-                            </TableCell>
-                            <TableCell className="hidden sm:table-cell">
-                              {c.phone ? <span className="font-mono text-xs flex items-center gap-1"><Phone className="w-3 h-3 text-muted-foreground" /> {c.phone}</span> : <span className="text-xs text-muted-foreground">—</span>}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Badge variant="outline" className="text-xs font-mono gap-1"><ShoppingBag className="w-3 h-3" /> {c.totalOrders ?? 0}</Badge>
-                            </TableCell>
-                            <TableCell className="text-right font-bold text-xs">{formatINR(c.totalSpent ?? 0).replace(".00","")}</TableCell>
-                            <TableCell className="text-right hidden md:table-cell text-xs text-muted-foreground">{c.totalOrders ? formatINR(avg).replace(".00","") : "—"}</TableCell>
-                            <TableCell className="text-right">
-                              {isDue ? <Badge variant="destructive" className="text-[11px]">{formatINR(c.balance).replace(".00","")}</Badge> : <Badge variant="outline" className="text-[11px]">No dues</Badge>}
-                            </TableCell>
-                            <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
-                              {c.lastOrderAt ? new Date(c.lastOrderAt as unknown as string).toLocaleDateString("en-IN") : <span className="text-muted-foreground/70">Never</span>}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); openDrawer(c.id); }}>
-                                <Eye className="w-3.5 h-3.5" />
-                              </Button>
-                            </TableCell>
+                      {loading && customers.length === 0 ? (
+                        Array.from({ length: 6 }).map((_, i) => (
+                          <TableRow key={`sk-${i}`} className="hover:bg-transparent">
+                            <TableCell colSpan={8}><div className="h-11 rounded-md bg-muted/60 animate-pulse" /></TableCell>
                           </TableRow>
-                        );
-                      })}
+                        ))
+                      ) : (
+                        customers.map((c) => {
+                          const avg = c.totalOrders ? (c.totalSpent ?? 0) / c.totalOrders : 0;
+                          const isDue = (c.balance ?? 0) > 0;
+                          return (
+                            <TableRow key={c.id} className="hover:bg-primary/[0.04] cursor-pointer group" onClick={() => openDrawer(c.id)} tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") openDrawer(c.id); }}>
+                              <TableCell className="py-2.5">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[11px] font-bold text-primary shrink-0">
+                                    {initials(c.name || "?")}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="font-semibold text-[13px] leading-tight truncate max-w-52" title={c.name}>{c.name}</div>
+                                    {(c as any).email
+                                      ? <div className="text-[11px] text-muted-foreground truncate max-w-52 mt-0.5">{(c as any).email}</div>
+                                      : <div className="text-[11px] text-muted-foreground sm:hidden mt-0.5">{c.phone ? <span className="font-mono tabular-nums">{c.phone}</span> : "No phone"}</div>}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="hidden sm:table-cell py-2.5">
+                                {c.phone ? <span className="font-mono text-[13px] tabular-nums flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> {c.phone}</span> : <span className="text-muted-foreground">—</span>}
+                              </TableCell>
+                              <TableCell className="text-center py-2.5">
+                                <Badge variant="outline" className="text-xs font-mono tabular-nums gap-1"><ShoppingBag className="w-3 h-3" /> {c.totalOrders ?? 0}</Badge>
+                              </TableCell>
+                              <TableCell className="text-right font-bold text-[14px] tabular-nums py-2.5">{formatINR(c.totalSpent ?? 0).replace(".00","")}</TableCell>
+                              <TableCell className="text-right hidden md:table-cell text-[13px] text-muted-foreground tabular-nums py-2.5">{c.totalOrders ? formatINR(avg).replace(".00","") : "—"}</TableCell>
+                              <TableCell className="text-right py-2.5">
+                                {isDue
+                                  ? <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-rose-600 dark:text-rose-400 tabular-nums"><span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />{formatINR(c.balance).replace(".00","")}</span>
+                                  : <span className="text-[13px] text-muted-foreground">No dues</span>}
+                              </TableCell>
+                              <TableCell className="hidden lg:table-cell text-[13px] text-muted-foreground tabular-nums py-2.5">
+                                {c.lastOrderAt ? new Date(c.lastOrderAt as unknown as string).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : <span className="text-muted-foreground/70">Never</span>}
+                              </TableCell>
+                              <TableCell className="py-2.5 pr-3">
+                                <Eye className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
                     </TableBody>
                   </Table>
                 </div>
