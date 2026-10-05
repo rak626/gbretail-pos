@@ -15,7 +15,7 @@ import { downloadCsv, productsToCsv } from "@/lib/inventoryCsv";
 import InventoryStats from "@/components/inventory/InventoryStats";
 import InventoryToolbar from "@/components/inventory/InventoryToolbar";
 import ProductTable from "@/components/inventory/ProductTable";
-import ProductDialog from "@/components/inventory/ProductDialog";
+import ProductDialog, { isValidImageUrl } from "@/components/inventory/ProductDialog";
 import RestockDialog from "@/components/inventory/RestockDialog";
 import ImportDialog from "@/components/inventory/ImportDialog";
 import { emptyProductForm, type Product, type ProductForm } from "@/components/inventory/types";
@@ -230,6 +230,7 @@ export default function InventoryPage() {
       stockQuantity: String(p.stockQuantity ?? 100),
       lowStockThreshold: String(p.lowStockThreshold ?? 10),
       description: "",
+      imageUrl: p.imageUrl ?? "",
     });
     setFormError("");
     setOpen(true);
@@ -251,6 +252,7 @@ export default function InventoryPage() {
     if (form.barcode && form.barcode.length < 8) return setFormError("Barcode should be at least 8 characters");
     if (form.lowStockThreshold.trim() !== "" && (isNaN(Number(form.lowStockThreshold)) || Number(form.lowStockThreshold) < 0))
       return setFormError("Low-stock warning level must be 0 or more");
+    if (!isValidImageUrl(form.imageUrl)) return setFormError("Photo must be an http(s) link, or leave it empty");
 
     setSaving(true);
     try {
@@ -264,6 +266,7 @@ export default function InventoryPage() {
         unit: form.unit.trim() || "pcs",
         stockQuantity: Number(form.stockQuantity) || 0,
         lowStockThreshold: form.lowStockThreshold.trim() === "" ? 10 : Number(form.lowStockThreshold),
+        imageUrl: form.imageUrl.trim() || null,
       };
       if (form.is_loose) {
         payload.rate_per_kg = Number(form.rate_per_kg);
@@ -425,6 +428,7 @@ export default function InventoryPage() {
           unit: (r.unit || (isLoose ? "kg" : "pcs")).trim() || "pcs",
           stockQuantity: isNaN(stock) ? 0 : Math.max(0, stock),
           lowStockThreshold: Number(r.warnat ?? r.warn ?? 10) || 10,
+          imageUrl: (r.imageurl ?? r.photo ?? "").trim() || null,
         };
         if (isLoose) { payload.rate_per_kg = sell; payload.price = null; }
         else { payload.price = sell; payload.rate_per_kg = null; }

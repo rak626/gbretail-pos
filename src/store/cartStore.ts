@@ -1,9 +1,17 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Product, CartItem } from "@/types";
+import type { Product, CartItem, Order } from "@/types";
 import { PRODUCT } from "@/config/constants";
 
 export type { CartItem } from "@/types";
+
+/** An online pickup order loaded for counter settlement — cart shows its frozen snapshot. */
+export type PickupOrder = {
+  id: string;
+  orderNumber: string;
+  status: string;
+  total: number;
+};
 
 interface CartState {
   items: CartItem[];
@@ -24,6 +32,7 @@ interface CartState {
   hasHydrated: boolean;
   productFreq: Record<string, number>;
   recentIds: string[];
+  pickupOrder: PickupOrder | null;
 
   addItem: (item: CartItem) => void;
   removeItem: (index: number) => void;
@@ -52,6 +61,12 @@ interface CartState {
   calculateGrandTotal: () => number;
   setHasHydrated: (v: boolean) => void;
   recordRecentOnSale: () => void;
+  /**
+   * Load an online pickup order's frozen snapshot into the cart.
+   * Only from an empty cart — returns false if items are already present.
+   */
+  loadPickupOrder: (order: Order) => boolean;
+  unloadPickupOrder: () => void;
 }
 
 export const useCartStore = create<CartState>()(
@@ -75,6 +90,7 @@ export const useCartStore = create<CartState>()(
       hasHydrated: false,
       productFreq: {},
       recentIds: [],
+      pickupOrder: null,
 
       addItem: (item) =>
         set((state) => {
@@ -151,6 +167,7 @@ export const useCartStore = create<CartState>()(
           items: [],
           discount: 0,
           currentCustomer: null,
+          pickupOrder: null,
           activeModal: null,
           looseItemModalOpen: false,
           customItemModalOpen: false,
@@ -266,6 +283,49 @@ export const useCartStore = create<CartState>()(
           }
           return { recentIds: recent.slice(0, PRODUCT.MAX_RECENT) };
         }),
+      loadPickupOrder: (order) => {
+        const state = get();
+        if (state.items.length > 0) return false;
+        const items: CartItem[] = (order.items ?? []).map((it) => ({
+          productId: it.productId ?? undefined,
+          name: it.name,
+          price: it.price,
+          unit: it.unit || "pcs",
+          quantity: it.quantity ?? undefined,
+          weight: it.weight ?? undefined,
+          lineTotal: it.lineTotal,
+          isCustom: false,
+          costPrice: it.costPrice ?? 0,
+          category: it.category ?? undefined,
+          is_loose: it.weight != null && Number(it.weight) > 0,
+        }));
+        if (items.length === 0) return false;
+        const cust = (order as unknown as { customer?: { id: string; name: string; phone: string | null } | null }).customer;
+        set({
+          items,
+          discount: 0,
+          currentCustomer: cust ? { id: cust.id, name: cust.name, phone: cust.phone ?? "", balance: 0, createdAt: Date.now(), updatedAt: Date.now() } : null,
+          pickupOrder: {
+            id: order.id,
+            orderNumber: order.orderNumber ?? order.id,
+            status: order.status,
+            total: order.total,
+          },
+          activeModal: null,
+          looseItemModalOpen: false,
+          customItemModalOpen: false,
+          addCustomerModalOpen: false,
+          printReceipt: false,
+        });
+        return true;
+      },
+      unloadPickupOrder: () =>
+        set({
+          items: [],
+          discount: 0,
+          currentCustomer: null,
+          pickupOrder: null,
+        }),
     }),
     {
       name: "gbretail-cart",
@@ -276,6 +336,7 @@ export const useCartStore = create<CartState>()(
         currentCustomer: state.currentCustomer,
         productFreq: state.productFreq,
         recentIds: state.recentIds,
+        pickupOrder: state.pickupOrder,
       }),
       // Empty bills can never be held — drop legacy [] parks on load.
       merge: (persisted, current) => {

@@ -23,6 +23,7 @@ export default function PosPayFooter() {
   const openCustomModal = useCartStore((s) => s.openCustomModal);
   const openPaymentModal = useCartStore((s) => s.openPaymentModal);
   const calculateGrandTotal = useCartStore((s) => s.calculateGrandTotal);
+  const pickupOrder = useCartStore((s) => s.pickupOrder);
 
   const [showDisc, setShowDisc] = useState(false);
   const [val, setVal] = useState("");
@@ -90,25 +91,31 @@ export default function PosPayFooter() {
         )}
 
         <div className="grid grid-cols-3 gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setShowDisc((v) => !v)}
-            className="h-12 rounded-xl text-[13px] font-semibold gap-1.5"
-            title="Discount (Shift+D)"
-          >
-            <BadgePercent className="w-4 h-4" /> Discount
-          </Button>
-          <Button variant="outline" onClick={handleHold} disabled={holdDisabled} className="h-12 rounded-xl text-[13px] font-semibold gap-1.5" title={empty ? "View held bills (F4)" : "Hold order (F4)"}>
-            <Pause className="w-4 h-4" /> Hold{heldOrders.length > 0 ? ` (${heldOrders.length})` : ""}
-            <Kbd className="hidden xl:inline-flex ml-1">F4</Kbd>
-          </Button>
-          <Button variant="outline" onClick={openCustomModal} className="h-12 rounded-xl text-[13px] font-semibold gap-1.5" title="Custom item (Shift+X)">
-            <Plus className="w-4 h-4" /> Custom
-          </Button>
+          {!pickupOrder && (
+            <Button
+              variant="outline"
+              onClick={() => setShowDisc((v) => !v)}
+              className="h-12 rounded-xl text-[13px] font-semibold gap-1.5"
+              title="Discount (Shift+D)"
+            >
+              <BadgePercent className="w-4 h-4" /> Discount
+            </Button>
+          )}
+          {!pickupOrder && (
+            <Button variant="outline" onClick={handleHold} disabled={holdDisabled} className="h-12 rounded-xl text-[13px] font-semibold gap-1.5" title={empty ? "View held bills (F4)" : "Hold order (F4)"}>
+              <Pause className="w-4 h-4" /> Hold{heldOrders.length > 0 ? ` (${heldOrders.length})` : ""}
+              <Kbd className="hidden xl:inline-flex ml-1">F4</Kbd>
+            </Button>
+          )}
+          {!pickupOrder && (
+            <Button variant="outline" onClick={openCustomModal} className="h-12 rounded-xl text-[13px] font-semibold gap-1.5" title="Custom item (Shift+X)">
+              <Plus className="w-4 h-4" /> Custom
+            </Button>
+          )}
         </div>
 
         <Button onClick={openPaymentModal} disabled={empty} className="w-full h-[68px] rounded-2xl text-[19px] font-bold gap-2" title="Pay (F9)">
-          {empty ? "Payment" : `Pay ${formatINR(grand)}`}
+          {empty ? "Payment" : pickupOrder ? `Collect ${formatINR(grand)}` : `Pay ${formatINR(grand)}`}
           {!empty && <Kbd className="hidden xl:inline-flex ml-1 border-primary-foreground/30 bg-primary-foreground/15 text-primary-foreground">F9</Kbd>}
         </Button>
       </CardContent>

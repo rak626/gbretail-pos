@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableHead, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ShoppingBag, PackageOpen, ScanLine } from "lucide-react";
+import { ShoppingBag, PackageOpen, PackageCheck, ScanLine } from "lucide-react";
 import { CartRow } from "@/components/cart/CartRow";
 import { Kbd } from "@/components/ui/kbd";
 
@@ -16,6 +16,7 @@ export default function CartTable() {
   const updateQty = useCartStore((s) => s.updateQty);
   const clearCart = useCartStore((s) => s.clearCart);
   const openLooseEditModal = useCartStore((s) => s.openLooseEditModal);
+  const pickupOrder = useCartStore((s) => s.pickupOrder);
   const hydrated = useHasHydrated();
   const displayItems = hydrated ? items : [];
   const isEmpty = displayItems.length === 0;
@@ -36,6 +37,15 @@ export default function CartTable() {
       </CardHeader>
 
       <CardContent className="p-0 flex-1 flex flex-col min-h-[160px]">
+        {pickupOrder && !isEmpty && (
+          <div className="mx-3 mt-3 flex items-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2 text-[12px]">
+            <PackageCheck className="w-4 h-4 shrink-0 text-primary" />
+            <span className="min-w-0 flex-1 truncate">
+              <span className="font-bold">Pickup {pickupOrder.orderNumber}</span>
+              <span className="text-muted-foreground"> · prices frozen — collect payment to hand over</span>
+            </span>
+          </div>
+        )}
         <ScrollArea className="flex-1 min-h-[200px]">
           {isEmpty ? (
             <div className="py-10 px-6 text-center flex flex-col items-center justify-center min-h-[280px]">
@@ -63,7 +73,7 @@ export default function CartTable() {
               </TableHeader>
               <TableBody>
                 {displayItems.map((it, idx) => (
-                  <CartRow key={`${it.productId || it.name}-${idx}`} item={it} index={idx} onUpdateQty={updateQty} onRemove={removeItem} onLooseEdit={openLooseEditModal} />
+                  <CartRow key={`${it.productId || it.name}-${idx}`} item={it} index={idx} onUpdateQty={updateQty} onRemove={removeItem} onLooseEdit={openLooseEditModal} readOnly={!!pickupOrder} />
                 ))}
               </TableBody>
             </Table>

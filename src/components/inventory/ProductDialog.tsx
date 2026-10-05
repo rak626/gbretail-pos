@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,7 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatINR } from "@/lib/utils";
+import { Package } from "lucide-react";
 import type { Product, ProductForm } from "./types";
+
+/** Mirrors the server rule: http(s) URL, max 500 chars. Empty = no photo. */
+export function isValidImageUrl(v: string): boolean {
+  const t = v.trim();
+  if (!t) return true;
+  return /^https?:\/\/.{4,490}$/.test(t);
+}
 
 type Props = {
   open: boolean;
@@ -28,6 +37,9 @@ export default function ProductDialog({ open, onOpenChange, editing, form, setFo
   const cost = Number(form.costPrice) || 0;
   const margin = sell - cost;
   const showMargin = sell > 0 && form.costPrice.trim() !== "";
+  const [previewBroken, setPreviewBroken] = useState(false);
+  const photoUrl = form.imageUrl.trim();
+  const showPreview = photoUrl !== "" && isValidImageUrl(photoUrl) && !previewBroken;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onOpenChange(false)}>
@@ -109,6 +121,36 @@ export default function ProductDialog({ open, onOpenChange, editing, form, setFo
           <div className="space-y-1.5">
             <Label className="text-[13px]">Low-stock warning at * <span className="text-muted-foreground font-normal">(in {form.unit.trim() || "pcs"} — warn only, never blocks sales)</span></Label>
             <Input type="number" value={form.lowStockThreshold} onChange={(e) => setForm((s) => ({ ...s, lowStockThreshold: e.target.value }))} placeholder="10" className="h-10 text-sm" />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-[13px]">Product photo <span className="text-muted-foreground font-normal">(link — shown in the online store)</span></Label>
+            <div className="flex items-center gap-3">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted/40">
+                {showPreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={photoUrl} src={photoUrl} alt="" className="h-full w-full object-cover" onError={() => setPreviewBroken(true)} />
+                ) : (
+                  <Package className="h-6 w-6 text-muted-foreground" />
+                )}
+              </span>
+              <Input
+                value={form.imageUrl}
+                onChange={(e) => {
+                  setPreviewBroken(false);
+                  setForm((s) => ({ ...s, imageUrl: e.target.value }));
+                }}
+                placeholder="https://…"
+                inputMode="url"
+                className="h-10 text-sm"
+              />
+            </div>
+            {photoUrl !== "" && !isValidImageUrl(photoUrl) && (
+              <div className="text-xs text-destructive">Must be an http(s) link — the online store shows an icon otherwise.</div>
+            )}
+            {photoUrl !== "" && isValidImageUrl(photoUrl) && previewBroken && (
+              <div className="text-xs text-muted-foreground">That link didn&apos;t load — check it&apos;s a public image address.</div>
+            )}
           </div>
 
           {formError && (

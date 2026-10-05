@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useCartStore } from "@/store/cartStore";
 import { formatINR, formatUPIPaymentUrl } from "@/lib/utils";
 import { generateReceiptHTML, printReceiptHTML } from "@/lib/print";
-import { createOrder } from "@/lib/api";
+import { createOrder, settleOrder, fetchOrder } from "@/lib/api";
+import { ApiError } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { useOnlineStore } from "@/store/onlineStore";
 import { useReceiptShop } from "@/hooks/useReceiptShop";
@@ -38,6 +39,8 @@ export default function PaymentModal() {
     clearCart,
     calculateGrandTotal,
     recordRecentOnSale,
+    pickupOrder,
+    unloadPickupOrder,
   } = useCartStore();
 
   const [customerName, setCustomerName] = useState("");
@@ -140,6 +143,49 @@ export default function PaymentModal() {
     setSaving(false);
   };
 
+  /**
+   * Pickup-settlement path: collects payment against the loaded online order.
+   * Same row → delivered; no new bill, no stock movement, frozen total.
+   * Returns the settled order, or null (error already surfaced).
+   */
+  const settlePickup = async (
+    paymentMethod: "cash" | "upi" | "split",
+    extra?: { splitCash?: number; splitUpi?: number }
+  ) => {
+    if (!pickupOrder || items.length === 0) return null;
+    try {
+      const order = await settleOrder(pickupOrder.id, {
+        paymentMethod,
+        counterId: selectedCounterId ?? undefined,
+        splitCash: extra?.splitCash,
+        splitUpi: extra?.splitUpi,
+      });
+      setSaveError(null);
+      return order;
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        // Order changed under us (settled elsewhere / cancelled) — reload truth.
+        try {
+          const fresh = await fetchOrder(pickupOrder.id);
+          if (String(fresh.status).toLowerCase() === "delivered") {
+            setSaveError("Already collected — this order shows delivered. Hand over nothing more.");
+          } else if (String(fresh.status).toLowerCase() === "cancelled") {
+            setSaveError("Order was cancelled — stock was released. Unload and bill as a normal sale if the customer still wants the items.");
+            unloadPickupOrder();
+          } else {
+            setSaveError("Order changed while collecting — re-check it in Pickup order and retry.");
+          }
+        } catch {
+          setSaveError(e instanceof Error ? e.message : "Settle conflict — retry.");
+        }
+        return null;
+      }
+      const msg = e instanceof Error ? e.message : "Settle failed";
+      setSaveError(`${msg} — safe to retry, nothing was charged twice.`);
+      return null;
+    }
+  };
+
   const blocked = () => {
     if (offline) {
       setSaveError("You're offline — reconnect to complete this sale. The bill is intact.");
@@ -148,9 +194,24 @@ export default function PaymentModal() {
     return false;
   };
 
+  const finishSettledSale = (orderNumber: string | undefined) => {
+    const orderItems = buildReceiptItems();
+    printReceipt(orderItems, grandTotal, discount, currentCustomer?.name, orderNumber);
+    recordRecentOnSale();
+    closePaymentModal();
+    clearCart();
+    setSaving(false);
+  };
+
   const handleCash = async () => {
     if (saving || blocked()) return;
     setSaving(true);
+    if (pickupOrder) {
+      const settled = await settlePickup("cash");
+      if (!settled) return fail();
+      finishSettledSale(settled.orderNumber);
+      return;
+    }
     const saved = await saveOrder("cash");
     if (!saved) return fail();
     const orderNumber = (saved as unknown as { orderNumber?: string })?.orderNumber;
@@ -167,6 +228,12 @@ export default function PaymentModal() {
     const url = formatUPIPaymentUrl(grandTotal, receiptShop?.upiId, receiptShop?.receiptName || receiptShop?.name);
     window.open(url, "_blank");
     setSaving(true);
+    if (pickupOrder) {
+      const settled = await settlePickup("upi");
+      if (!settled) return fail();
+      setTimeout(() => finishSettledSale(settled.orderNumber), 1500);
+      return;
+    }
     const saved = await saveOrder("upi");
     if (!saved) return fail();
     const orderNumber = (saved as unknown as { orderNumber?: string })?.orderNumber;
@@ -222,6 +289,18 @@ export default function PaymentModal() {
     if (Math.abs(cash + upi - grandTotal) > 0.01) return;
     if (saving || blocked()) return;
     setSaving(true);
+    if (pickupOrder) {
+      const settled = await settlePickup("split", { splitCash: cash, splitUpi: upi });
+      if (!settled) return fail();
+      const orderItems = buildReceiptItems();
+      const label = currentCustomer?.name ? `${currentCustomer.name} (Split: Cash ${formatINR(cash)} + UPI ${formatINR(upi)})` : `Split: Cash ${formatINR(cash)} + UPI ${formatINR(upi)}`;
+      printReceipt(orderItems, grandTotal, discount, label, settled.orderNumber);
+      recordRecentOnSale();
+      closePaymentModal();
+      clearCart();
+      setSaving(false);
+      return;
+    }
     const saved = await saveOrder("split", { splitCash: cash, splitUpi: upi });
     if (!saved) return fail();
     const orderNumber = (saved as unknown as { orderNumber?: string })?.orderNumber;
@@ -238,8 +317,12 @@ export default function PaymentModal() {
     <Dialog open={paymentModalOpen} onOpenChange={(o) => !o && closePaymentModal()}>
       <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden max-h-[90vh] overflow-y-auto">
         <DialogHeader className="p-6 pb-4">
-          <DialogTitle className="text-[17px]">Payment</DialogTitle>
-          <DialogDescription className="text-[13px]">Choose payment method — order will be auto-saved</DialogDescription>
+          <DialogTitle className="text-[17px]">{pickupOrder ? `Collect pickup payment · ${pickupOrder.orderNumber}` : "Payment"}</DialogTitle>
+          <DialogDescription className="text-[13px]">
+            {pickupOrder
+              ? "Frozen online total — settles the same order, no new bill, no stock change."
+              : "Choose payment method — order will be auto-saved"}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="px-6 pb-6 space-y-4">
@@ -276,10 +359,13 @@ export default function PaymentModal() {
             </Button>
           </div>
 
-          <Separator />
+          {/* Khata is a counter-sale credit line — never offered on pickup settlement. */}
+          {!pickupOrder && (
+            <>
+              <Separator />
 
-          <div className="space-y-2.5">
-            <Label className="text-[13px] font-semibold">Khata (Credit) — Shift+L</Label>
+              <div className="space-y-2.5">
+                <Label className="text-[13px] font-semibold">Khata (Credit) — Shift+L</Label>
             <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder={currentCustomer?.name ?? "Customer name"} className="h-11 text-[15px]" />
             <Input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder={currentCustomer?.phone ?? "Phone number"} type="tel" className="h-11 text-[15px]" />
             <div className="space-y-2">
@@ -338,7 +424,9 @@ export default function PaymentModal() {
             <div className="text-[10px] text-muted-foreground text-center">Shown in Ledger → Due Today on due date</div>
           </div>
 
-          <Separator />
+              <Separator />
+            </>
+          )}
 
           <div className="space-y-2">
             <Label className="text-[13px] font-semibold">Split Bill (Cash + UPI)</Label>

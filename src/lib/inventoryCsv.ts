@@ -10,14 +10,14 @@ function esc(v: unknown): string {
 /** Client-side CSV export — no backend needed. Owner-only cost columns included by caller. */
 export function productsToCsv(products: Product[], includeCost: boolean): string {
   const headers = includeCost
-    ? ["name", "category", "type", "sellPrice", "costPrice", "margin", "stock", "unit", "warnAt", "barcode"]
-    : ["name", "category", "type", "sellPrice", "stock", "unit", "barcode"];
+    ? ["name", "category", "type", "sellPrice", "costPrice", "margin", "stock", "unit", "warnAt", "barcode", "photo"]
+    : ["name", "category", "type", "sellPrice", "stock", "unit", "barcode", "photo"];
   const lines = [headers.join(",")];
   for (const p of products) {
     const sell = p.is_loose ? (p.rate_per_kg ?? "") : (p.price ?? "");
     const row = includeCost
-      ? [p.name, p.category, p.is_loose ? "loose" : "packaged", sell, (p as { costPrice?: unknown }).costPrice ?? "", sell !== "" && (p as { costPrice?: number }).costPrice != null ? Number(sell) - Number((p as { costPrice?: number }).costPrice ?? 0) : "", p.stockQuantity ?? "", p.unit ?? "", p.lowStockThreshold ?? "", p.barcode ?? ""]
-      : [p.name, p.category, p.is_loose ? "loose" : "packaged", sell, p.stockQuantity ?? "", p.unit ?? "", p.barcode ?? ""];
+      ? [p.name, p.category, p.is_loose ? "loose" : "packaged", sell, (p as { costPrice?: unknown }).costPrice ?? "", sell !== "" && (p as { costPrice?: number }).costPrice != null ? Number(sell) - Number((p as { costPrice?: number }).costPrice ?? 0) : "", p.stockQuantity ?? "", p.unit ?? "", p.lowStockThreshold ?? "", p.barcode ?? "", p.imageUrl ?? ""]
+      : [p.name, p.category, p.is_loose ? "loose" : "packaged", sell, p.stockQuantity ?? "", p.unit ?? "", p.barcode ?? "", p.imageUrl ?? ""];
     lines.push(row.map(esc).join(","));
   }
   return lines.join("\n");

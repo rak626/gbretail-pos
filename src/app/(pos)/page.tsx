@@ -12,6 +12,7 @@ import PosProductCard from "@/components/pos/PosProductCard";
 import PosPayFooter from "@/components/pos/PosPayFooter";
 import PosShortcutHelp from "@/components/pos/PosShortcutHelp";
 import HeldBillsDialog from "@/components/pos/HeldBillsDialog";
+import { PickupOrderButton } from "@/components/pos/PickupOrderDialog";
 import SearchPalette from "@/components/pos/SearchPalette";
 import LooseItemModal from "@/components/LooseItemModal";
 import CustomItemModal from "@/components/CustomItemModal";
@@ -167,6 +168,7 @@ export default function Home() {
           </div>
           {/* Right: cart + merged pay footer */}
           <div className="col-span-12 lg:col-span-4 flex flex-col min-h-0 overflow-hidden bg-card lg:bg-muted/20 border-t lg:border-t-0 p-3 gap-3">
+            <PickupOrderButton />
             <div className="flex-1 min-h-0 overflow-auto flex flex-col">
               <CartTable />
             </div>

@@ -12,11 +12,14 @@ interface CartRowProps {
   onUpdateQty: (idx: number, qty: number) => void;
   onRemove: (idx: number) => void;
   onLooseEdit: (idx: number) => void;
+  /** Pickup-settlement mode: snapshot prices — qty/weight/remove locked. */
+  readOnly?: boolean;
 }
 
-export function CartRow({ item, index, onUpdateQty, onRemove, onLooseEdit }: CartRowProps) {
+export function CartRow({ item, index, onUpdateQty, onRemove, onLooseEdit, readOnly = false }: CartRowProps) {
   const isLoose = !!item.is_loose || (!!item.weight && item.weight > 0);
   const isCustom = !!item.isCustom;
+  const qtyLabel = isLoose && !isCustom ? formatLooseQty(item.weight) : `${item.quantity || 0}`;
 
   return (
     <TableRow className="bg-card hover:bg-accent/50 border-b">
@@ -32,7 +35,13 @@ export function CartRow({ item, index, onUpdateQty, onRemove, onLooseEdit }: Car
         <div className="text-[11px] text-muted-foreground">{getPerUnitText(item)}</div>
       </TableCell>
       <TableCell className="w-36">
-        {isLoose && !isCustom ? (
+        {readOnly ? (
+          <div className="flex items-center justify-center">
+            <span className="min-w-[72px] h-11 flex items-center justify-center rounded-full bg-muted border text-[15px] font-bold tabular-nums px-3" title="Frozen from online order">
+              {qtyLabel}
+            </span>
+          </div>
+        ) : isLoose && !isCustom ? (
           <div className="flex items-center justify-center gap-2">
             <Button variant="outline" size="icon" className="h-11 w-11 rounded-full p-0 shrink-0" onClick={() => onLooseEdit(index)} aria-label="Edit loose weight">
               <Minus className="w-4 h-4" />
@@ -62,9 +71,15 @@ export function CartRow({ item, index, onUpdateQty, onRemove, onLooseEdit }: Car
       </TableCell>
       <TableCell className="w-24 text-right font-bold text-[15px] tabular-nums tracking-tight">{formatINR(item.lineTotal)}</TableCell>
       <TableCell className="w-12 text-center">
-        <Button variant="ghost" size="icon" onClick={() => onRemove(index)} className="h-10 w-10 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10" aria-label={`Remove ${item.name}`}>
-          <Trash2 className="w-4 h-4" />
-        </Button>
+        {readOnly ? (
+          <span className="inline-flex h-10 w-10 items-center justify-center text-muted-foreground/40" title="Locked — online order snapshot">
+            <Trash2 className="w-4 h-4" />
+          </span>
+        ) : (
+          <Button variant="ghost" size="icon" onClick={() => onRemove(index)} className="h-10 w-10 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10" aria-label={`Remove ${item.name}`}>
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
       </TableCell>
     </TableRow>
   );

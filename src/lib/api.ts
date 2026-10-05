@@ -151,7 +151,7 @@ export async function createOrder(payload: {
   return data.order;
 }
 
-export async function fetchOrders(params?: { page?: number; limit?: number; customerId?: string; search?: string; customer?: string; date?: string; from?: string; to?: string; paymentMethod?: string }) {
+export async function fetchOrders(params?: { page?: number; limit?: number; customerId?: string; search?: string; customer?: string; date?: string; from?: string; to?: string; paymentMethod?: string; channel?: string; status?: string }) {
   return apiClient.get<{ orders: Order[]; total: number; page: number }>("/api/orders", {
     page: params?.page,
     limit: params?.limit,
@@ -162,11 +162,27 @@ export async function fetchOrders(params?: { page?: number; limit?: number; cust
     from: params?.from,
     to: params?.to,
     paymentMethod: params?.paymentMethod,
+    channel: params?.channel,
+    status: params?.status,
   });
 }
 
 export async function fetchOrder(id: string) {
   const data = await apiClient.get<{ order: Order }>(`/api/orders/${id}`);
+  return data.order;
+}
+
+/**
+ * Collect counter payment for an online pickup order. Same order row goes
+ * pending|confirmed|packed → delivered with payment + counter attribution.
+ * Never creates a second sale, never touches stock (already decremented
+ * when the customer ordered). Totals stay frozen from the order snapshot.
+ */
+export async function settleOrder(
+  id: string,
+  payload: { paymentMethod: "cash" | "upi" | "split"; counterId?: string; splitCash?: number; splitUpi?: number }
+) {
+  const data = await apiClient.post<{ order: Order }>(`/api/orders/${id}/settle`, payload);
   return data.order;
 }
 

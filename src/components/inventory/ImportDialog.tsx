@@ -25,14 +25,14 @@ export default function ImportDialog({ open, onOpenChange, importing, progress, 
         <DialogHeader className="p-5 pb-3 shrink-0">
           <DialogTitle className="text-[15px]">Import SKUs from CSV</DialogTitle>
           <DialogDescription className="text-[12px]">
-            Header: <span className="font-mono">name, category, type, sellPrice, costPrice, stock, unit, barcode</span> — type is <span className="font-mono">packaged</span> or <span className="font-mono">loose</span>.
+            Header: <span className="font-mono">name, category, type, sellPrice, costPrice, stock, unit, barcode</span> — type is <span className="font-mono">packaged</span> or <span className="font-mono">loose</span>. Optional <span className="font-mono">photo</span> column takes an http(s) image link.
           </DialogDescription>
         </DialogHeader>
         <div className="px-5 pb-4 space-y-3 overflow-auto">
           <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={"name, category, type, sellPrice, costPrice, stock, unit, barcode\nTata Salt 1kg, Staples, packaged, 28, 22, 100, pcs, 8901001\nSugar, Staples, loose, 48, 40, 50, kg,"}
+              placeholder={"name, category, type, sellPrice, costPrice, stock, unit, barcode, photo\nTata Salt 1kg, Staples, packaged, 28, 22, 100, pcs, 8901001, https://…\nSugar, Staples, loose, 48, 40, 50, kg,,"}
             className="min-h-[140px] font-mono text-xs"
             rows={7}
           />

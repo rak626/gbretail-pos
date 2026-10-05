@@ -18,6 +18,7 @@ export type ProductForm = {
   stockQuantity: string;
   lowStockThreshold: string;
   description: string;
+  imageUrl: string;
 };
 
 export const emptyProductForm: ProductForm = {
@@ -32,6 +33,7 @@ export const emptyProductForm: ProductForm = {
   stockQuantity: "100",
   lowStockThreshold: "10",
   description: "",
+  imageUrl: "",
 };
 
 export const SORT_OPTIONS: Array<{ value: ProductSortBy; label: string }> = [

@@ -16,6 +16,8 @@ export type Product = {
   stockQuantity?: number;
   // Warn when stockQuantity <= lowStockThreshold (in the product's own stock unit). Defaults to 10.
   lowStockThreshold?: number | null;
+  // Public photo URL (http(s)) shown on the online storefront. Null = icon fallback.
+  imageUrl?: string | null;
 };
 
 export type LowStockWarning = {
@@ -81,6 +83,8 @@ export type Order = {
   customerId?: string | null;
   customer?: Customer | null;
   status: string;
+  /** pos = counter sale, online = storefront order (pickup settlement keeps this). */
+  channel?: string;
   syncedAt?: number | string | null;
   orderDate?: number | string;
   createdAt: number | string;
