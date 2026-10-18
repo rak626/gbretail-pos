@@ -1,6 +1,8 @@
-import { apiClient } from "@/lib/apiClient";
+import { apiClient, ApiError } from "@/lib/apiClient";
 export { ApiError, API_BASE } from "@/lib/apiClient";
 import type { Product, Customer, Order, LowStockWarning } from "@/types";
+import { db, type OrderQueueItem } from "@/db/database";
+import { generateId } from "@/lib/utils";
 
 // Products
 export async function fetchProducts(
@@ -122,6 +124,18 @@ export async function fetchCustomerStats() {
 }
 
 // Orders
+/** Queue key prefix for offline orders stored in Dexie. */
+const OFFLINE_ORDER_PREFIX = "offline-";
+
+/** Build a synthetic order number for a queued (offline) bill so staff have a reference. */
+function queueOrderNumber(prefix: string): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `Q-${yyyy}${mm}${dd}-${prefix}`;
+}
+
 export async function createOrder(payload: {
   items: unknown[];
   total: number;
@@ -137,18 +151,107 @@ export async function createOrder(payload: {
   counterId?: string;
   shopId?: string;
 }, opts?: { idempotencyKey?: string }) {
-  const data = await apiClient.post<{ order: Order; lowStockWarnings?: LowStockWarning[]; idempotentReplay?: boolean }>(
-    "/api/orders",
-    payload,
-    opts?.idempotencyKey ? { headers: { "Idempotency-Key": opts.idempotencyKey } } : undefined
-  );
-  if (data.lowStockWarnings?.length) {
-    console.warn(
-      "[orders] low stock after sale:",
-      data.lowStockWarnings.map((w) => `${w.name} — ${w.stockQuantity} ${w.unit} left (warn at ≤ ${w.lowStockThreshold})`).join("; ")
+  const idempotencyKey = opts?.idempotencyKey ?? generateId();
+  try {
+    const data = await apiClient.post<{ order: Order; lowStockWarnings?: LowStockWarning[]; idempotentReplay?: boolean }>(
+      "/api/orders",
+      payload,
+      { headers: { "Idempotency-Key": idempotencyKey } }
     );
+    if (data.lowStockWarnings?.length) {
+      console.warn(
+        "[orders] low stock after sale:",
+        data.lowStockWarnings.map((w) => `${w.name} — ${w.stockQuantity} ${w.unit} left (warn at ≤ ${w.lowStockThreshold})`).join("; ")
+      );
+    }
+    // If we previously queued this same idempotency key, mark it synced.
+    try {
+      const queued = await db.ordersQueue.where("idempotencyKey").equals(idempotencyKey).first();
+      if (queued) {
+        await db.ordersQueue.update(queued.id, { synced: true, lastError: null });
+      }
+    } catch {
+      // best-effort
+    }
+    return data.order;
+  } catch (e) {
+    // Network error (fetch threw, no HTTP response) → queue for later replay.
+    // HTTP errors (ApiError with status) are NOT queued — they're business-logic rejections.
+    const isNetworkError = !(e instanceof ApiError) || (e as ApiError).status === 0 || (e as ApiError).status >= 500;
+    if (isNetworkError && typeof window !== "undefined") {
+      const queueItem: OrderQueueItem = {
+        id: `${OFFLINE_ORDER_PREFIX}${generateId()}`,
+        payload,
+        idempotencyKey,
+        createdAt: Date.now(),
+        synced: false,
+        attempts: 0,
+        lastError: e instanceof Error ? e.message : "Network error",
+      };
+      try {
+        await db.ordersQueue.add(queueItem);
+        console.warn("[orders] queued offline for replay:", queueItem.id, queueItem.idempotencyKey);
+      } catch (dbErr) {
+        console.error("[orders] failed to persist offline queue:", dbErr);
+      }
+      // Return a synthetic queued result so the UI can print a draft receipt + inform staff.
+      return {
+        id: queueItem.id,
+        orderNumber: queueOrderNumber(queueItem.id.slice(-8)),
+        status: "queued",
+        total: payload.total,
+        items: payload.items,
+        customerId: payload.customerId,
+        _queued: true,
+      } as unknown as Order;
+    }
+    throw e;
   }
-  return data.order;
+}
+
+/** Replay all unsynced offline orders. Returns { synced, failed, total }. */
+export async function syncQueuedOrders(): Promise<{ synced: number; failed: number; total: number }> {
+  const unsynced = await db.ordersQueue.filter((item) => !item.synced).sortBy("createdAt");
+  let synced = 0;
+  let failed = 0;
+
+  for (const item of unsynced) {
+    item.attempts += 1;
+    try {
+      await apiClient.post<{ order: Order }>(
+        "/api/orders",
+        item.payload as unknown,
+        { headers: { "Idempotency-Key": item.idempotencyKey } }
+      );
+      await db.ordersQueue.update(item.id, { synced: true, lastError: null });
+      synced += 1;
+    } catch (e) {
+      const isNetworkError = !(e instanceof ApiError) || (e as ApiError).status === 0 || (e as ApiError).status >= 500;
+      if (isNetworkError) {
+        // Still offline — leave for next retry, bump attempts + record error
+        await db.ordersQueue.update(item.id, {
+          attempts: item.attempts,
+          lastError: e instanceof Error ? e.message : "Network error",
+        });
+        failed += 1;
+      } else {
+        // Business-logic rejection (400/409/422) — won't succeed on retry. Mark synced to stop retrying.
+        await db.ordersQueue.update(item.id, {
+          synced: true,
+          lastError: e instanceof Error ? e.message : "Rejected by server",
+        });
+        failed += 1;
+        console.warn("[orders] offline queue item rejected by server (not retrying):", item.id, item.lastError);
+      }
+    }
+  }
+
+  return { synced, failed, total: unsynced.length };
+}
+
+/** Count of unsynced offline orders (for UI badge). */
+export async function getQueuedOrdersCount(): Promise<number> {
+  return db.ordersQueue.filter((item) => !item.synced).count();
 }
 
 export async function fetchOrders(params?: { page?: number; limit?: number; customerId?: string; search?: string; customer?: string; date?: string; from?: string; to?: string; paymentMethod?: string; channel?: string; status?: string }) {

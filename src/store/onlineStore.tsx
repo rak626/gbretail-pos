@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { API_BASE } from "@/lib/apiClient";
 import { useCartStore } from "@/store/cartStore";
+import { syncQueuedOrders } from "@/lib/api";
 
 const HEARTBEAT_MS = 5_000;
 const TIMEOUT_MS = 5_000;
@@ -19,6 +20,7 @@ let refs = 0;
 let timer: ReturnType<typeof setInterval> | null = null;
 let fails = 0;
 let listenersAttached = false;
+let syncing = false;
 
 function mirrorToCart(online: boolean) {
   try {
@@ -61,8 +63,13 @@ async function runCheck() {
   if (ok) {
     fails = 0;
     if (!cur.online) {
+      // Transitioned offline → online: replay any queued orders.
       useOnlineStore.setState({ online: true, lastChecked: Date.now() });
       mirrorToCart(true);
+      if (!syncing) {
+        syncing = true;
+        void syncQueuedOrders().then(() => { syncing = false; }).catch(() => { syncing = false; });
+      }
     } else {
       useOnlineStore.setState({ lastChecked: Date.now() });
     }
@@ -75,9 +82,13 @@ async function runCheck() {
   }
 }
 
-function onBrowserOnline() {
+async function onBrowserOnline() {
   fails = 0;
-  void runCheck();
+  await runCheck();
+  if (!syncing) {
+    syncing = true;
+    void syncQueuedOrders().then(() => { syncing = false; }).catch(() => { syncing = false; });
+  }
 }
 function onBrowserOffline() {
   fails = 0;

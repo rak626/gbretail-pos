@@ -187,10 +187,8 @@ export default function PaymentModal() {
   };
 
   const blocked = () => {
-    if (offline) {
-      setSaveError("You're offline — reconnect to complete this sale. The bill is intact.");
-      return true;
-    }
+    // Offline is no longer a block — createOrder() queues the bill for replay on reconnect.
+    // Keep this hook for future non-offline blocks (e.g. printer out of paper).
     return false;
   };
 
@@ -214,6 +212,13 @@ export default function PaymentModal() {
     }
     const saved = await saveOrder("cash");
     if (!saved) return fail();
+    if ((saved as any)._queued) {
+      setSaveError("Queued offline — will sync to the server when you reconnect. Keep this tab open.");
+      closePaymentModal();
+      clearCart();
+      setSaving(false);
+      return;
+    }
     const orderNumber = (saved as unknown as { orderNumber?: string })?.orderNumber;
     const orderItems = buildReceiptItems();
     printReceipt(orderItems, grandTotal, discount, currentCustomer?.name, orderNumber);
@@ -236,6 +241,13 @@ export default function PaymentModal() {
     }
     const saved = await saveOrder("upi");
     if (!saved) return fail();
+    if ((saved as any)._queued) {
+      setSaveError("Queued offline — will sync to the server when you reconnect. Keep this tab open.");
+      closePaymentModal();
+      clearCart();
+      setSaving(false);
+      return;
+    }
     const orderNumber = (saved as unknown as { orderNumber?: string })?.orderNumber;
     const orderItems = buildReceiptItems();
     setTimeout(() => {
@@ -265,6 +277,13 @@ export default function PaymentModal() {
     setSaving(true);
     const saved = await saveOrder("khata", { customerName: name, customerPhone: phone, creditDays: cd });
     if (!saved) return fail();
+    if ((saved as any)._queued) {
+      setSaveError("Queued offline — will sync to the server when you reconnect. Keep this tab open.");
+      closePaymentModal();
+      clearCart();
+      setSaving(false);
+      return;
+    }
     const savedCustomer = (saved as unknown as { customer?: { id: string; name: string; phone: string | null; balance: number } })?.customer;
     if (savedCustomer && typeof savedCustomer === "object") {
       const normalized = {
@@ -303,6 +322,13 @@ export default function PaymentModal() {
     }
     const saved = await saveOrder("split", { splitCash: cash, splitUpi: upi });
     if (!saved) return fail();
+    if ((saved as any)._queued) {
+      setSaveError("Queued offline — will sync to the server when you reconnect. Keep this tab open.");
+      closePaymentModal();
+      clearCart();
+      setSaving(false);
+      return;
+    }
     const orderNumber = (saved as unknown as { orderNumber?: string })?.orderNumber;
     const orderItems = buildReceiptItems();
     const label = currentCustomer?.name ? `${currentCustomer.name} (Split: Cash ${formatINR(cash)} + UPI ${formatINR(upi)})` : `Split: Cash ${formatINR(cash)} + UPI ${formatINR(upi)}`;
@@ -343,17 +369,17 @@ export default function PaymentModal() {
           {offline && (
             <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-[11px] leading-snug text-destructive" role="alert">
               <span className="font-semibold">You&apos;re offline. </span>
-              Billing is paused — reconnect to complete this sale. The bill is intact.
+              Bills will queue and auto-sync when you reconnect. Keep this tab open.
             </div>
           )}
 
           <div className="grid gap-2.5">
-            <Button onClick={handleCash} disabled={saving || offline || items.length === 0} title={offline ? OFFLINE_REASON : undefined} size="sm" className="h-auto py-3 flex-col gap-0.5">
+            <Button onClick={handleCash} disabled={saving || items.length === 0} title={saving ? "Processing…" : undefined} size="sm" className="h-auto py-3 flex-col gap-0.5">
               <span className="font-bold text-sm flex items-center gap-1.5">Cash Payment <span className="px-1 py-0.5 bg-white/20 rounded text-[10px]">K</span></span>
-              <span className="text-xs opacity-80 font-normal">{saving ? "Saving..." : offline ? "Offline — billing paused" : "Complete sale with cash"}</span>
+              <span className="text-xs opacity-80 font-normal">{saving ? "Saving…" : offline ? "Queue offline sale" : "Complete sale with cash"}</span>
             </Button>
 
-            <Button onClick={handleUPIPayment} disabled={saving || offline || items.length === 0} title={offline ? OFFLINE_REASON : undefined} variant="secondary" size="sm" className="h-auto py-3 flex-col gap-0.5 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white">
+            <Button onClick={handleUPIPayment} disabled={saving || items.length === 0} title={saving ? "Processing…" : undefined} variant="secondary" size="sm" className="h-auto py-3 flex-col gap-0.5 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white">
               <span className="font-bold text-sm flex items-center gap-1.5">UPI QR <span className="px-1 py-0.5 bg-white text-blue-700 rounded text-[10px]">Shift+U</span></span>
               <span className="text-xs opacity-80">Scan QR to pay {formatINR(grandTotal)}</span>
             </Button>
@@ -413,13 +439,13 @@ export default function PaymentModal() {
             </div>
             <Button
               onClick={handleKhata}
-              disabled={saving || offline || (!customerName.trim() && !currentCustomer) || (creditTerm === "custom" && (!customDays || parseInt(customDays, 10) < 1))}
-              title={offline ? OFFLINE_REASON : undefined}
+              disabled={saving || (!customerName.trim() && !currentCustomer) || (creditTerm === "custom" && (!customDays || parseInt(customDays, 10) < 1))}
+              title={saving ? "Processing…" : undefined}
               variant="secondary"
               size="sm"
               className="w-full bg-violet-600 hover:bg-violet-700 text-white dark:bg-violet-600 h-11 text-sm"
             >
-              {saving ? "Saving..." : offline ? "Offline — billing paused" : `Add to Ledger — ${formatINR(grandTotal)}`}
+              {saving ? "Saving…" : offline ? "Queue khata offline" : `Add to Ledger — ${formatINR(grandTotal)}`}
             </Button>
             <div className="text-[10px] text-muted-foreground text-center">Shown in Ledger → Due Today on due date</div>
           </div>
@@ -465,8 +491,8 @@ export default function PaymentModal() {
             <div className="text-xs text-center text-muted-foreground tabular-nums">
               Cash {formatINR(parseFloat(splitCash) || 0)} + UPI {formatINR(parseFloat(splitUpi) || 0)} = {formatINR((parseFloat(splitCash) || 0) + (parseFloat(splitUpi) || 0))} / {formatINR(grandTotal)}
             </div>
-            <Button onClick={handleSplitBill} disabled={saving || offline || Math.abs((parseFloat(splitCash) || 0) + (parseFloat(splitUpi) || 0) - grandTotal) > 0.01} title={offline ? OFFLINE_REASON : undefined} size="sm" className="w-full bg-gradient-to-r from-primary to-blue-600 hover:opacity-90 h-11 text-sm">
-              {saving ? "Saving..." : offline ? "Offline — billing paused" : "Pay Split Bill"}
+            <Button onClick={handleSplitBill} disabled={saving || Math.abs((parseFloat(splitCash) || 0) + (parseFloat(splitUpi) || 0) - grandTotal) > 0.01} title={saving ? "Processing…" : undefined} size="sm" className="w-full bg-gradient-to-r from-primary to-blue-600 hover:opacity-90 h-11 text-sm">
+              {saving ? "Saving…" : offline ? "Queue split offline" : "Pay Split Bill"}
             </Button>
           </div>
 
