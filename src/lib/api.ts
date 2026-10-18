@@ -1,6 +1,6 @@
 import { apiClient, ApiError } from "@/lib/apiClient";
 export { ApiError, API_BASE } from "@/lib/apiClient";
-import type { Product, Customer, Order, LowStockWarning } from "@/types";
+import type { Product, Customer, Order, LowStockWarning, ProductBatch } from "@/types";
 import { db, type OrderQueueItem } from "@/db/database";
 import { generateId } from "@/lib/utils";
 
@@ -34,7 +34,7 @@ export async function fetchProductsPaged(
 
 /** Shop-wide product KPIs + distinct categories (never paginated). */
 export async function fetchProductsMeta(opts?: { signal?: AbortSignal }) {
-  return apiClient.get<{ total: number; low: number; out: number; categories: string[]; stockValueCost?: number; stockValueSell?: number }>("/api/products/meta", undefined, opts);
+  return apiClient.get<{ total: number; low: number; out: number; categories: string[]; stockValueCost?: number; stockValueSell?: number; expiringSoon?: number; expired?: number }>("/api/products/meta", undefined, opts);
 }
 
 export async function createProduct(payload: Record<string, unknown>) {
@@ -72,6 +72,28 @@ export async function deleteProduct(id: string) {
     useCatalogStore.getState().invalidate();
   } catch { /* best-effort */ }
   return res;
+}
+
+/** Product batches — expiry/MRP/cost tracking per received lot. */
+export async function fetchProductBatches(params?: { productId?: string; shopId?: string; activeOnly?: boolean }, opts?: { signal?: AbortSignal }) {
+  return apiClient.get<{ batches: ProductBatch[] }>("/api/products/batches", { productId: params?.productId, shopId: params?.shopId, activeOnly: params?.activeOnly !== false ? "1" : undefined }, opts);
+}
+
+/** Receive stock into a new batch. Increments product stockQuantity on the server. */
+export async function createProductBatch(payload: {
+  productId: string;
+  batchNo: string;
+  expiryDate: string | null;
+  mrp: number | null;
+  costPrice: number;
+  quantity: number;
+}, opts?: { signal?: AbortSignal }) {
+  const data = await apiClient.post<{ batch: ProductBatch }>("/api/products/batches", payload, opts);
+  try {
+    const { useCatalogStore } = await import("@/store/catalogStore");
+    useCatalogStore.getState().invalidate();
+  } catch { /* best-effort */ }
+  return data.batch;
 }
 
 // Customers

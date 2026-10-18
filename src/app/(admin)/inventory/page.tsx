@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatINR } from "@/lib/utils";
-import { fetchProductsPaged, fetchProductsMeta, createProduct, createProductsBatch, updateProduct, deleteProduct } from "@/lib/api";
+import { fetchProductsPaged, fetchProductsMeta, createProduct, createProductsBatch, updateProduct, deleteProduct, createProductBatch, fetchProductBatches } from "@/lib/api";
 import type { ProductStockFilter, ProductSortBy } from "@/lib/api";
 import { fetchMe } from "@/lib/authApi";
 import { useConfirm } from "@/components/confirm-dialog";
@@ -34,7 +34,11 @@ export default function InventoryPage() {
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [meta, setMeta] = useState<{ total: number; low: number; out: number; categories: string[]; stockValueCost?: number; stockValueSell?: number }>({ total: 0, low: 0, out: 0, categories: [] });
+  const [meta, setMeta] = useState<{ total: number; low: number; out: number; categories: string[]; stockValueCost?: number; stockValueSell?: number; expiringSoon?: number; expired?: number }>({ total: 0, low: 0, out: 0, categories: [] });
+  // restock batch fields
+  const [restockBatchNo, setRestockBatchNo] = useState("");
+  const [restockExpiryDate, setRestockExpiryDate] = useState("");
+  const [restockMrp, setRestockMrp] = useState("");
   const PAGE_LIMIT = 50;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_LIMIT));
   const searchRef = useRef<HTMLInputElement>(null);
@@ -293,6 +297,9 @@ export default function InventoryPage() {
     setRestockPrice(p.is_loose ? "" : String(p.price ?? ""));
     setRestockRate(p.is_loose ? String(p.rate_per_kg ?? "") : "");
     setRestockCost(String((p as unknown as { costPrice?: number }).costPrice ?? ""));
+    setRestockBatchNo("");
+    setRestockExpiryDate("");
+    setRestockMrp("");
     setRestockError("");
     setRestockOpen(true);
   };
@@ -303,43 +310,57 @@ export default function InventoryPage() {
     setRestockError("");
     const add = Number(restockQty);
     if (!restockQty || isNaN(add) || add <= 0) return setRestockError("Enter valid quantity to add (e.g., 40)");
+    if (!restockBatchNo.trim()) return setRestockError("Batch number is required (e.g., BATCH-001)");
+
     const currentStock = restockProduct.stockQuantity ?? 0;
     const newQty = currentStock + add;
 
-    const payload: Record<string, unknown> = { stockQuantity: newQty };
+    // Optional price updates
+    const priceUpdates: Record<string, unknown> = {};
     if (restockProduct.is_loose) {
       if (restockRate.trim() !== "") {
         const r = Number(restockRate);
         if (isNaN(r) || r <= 0) return setRestockError("Rate per kg must be > 0");
-        payload.rate_per_kg = r;
-      }
-      if (restockCost.trim() !== "") {
-        const cp = Number(restockCost);
-        if (isNaN(cp) || cp < 0) return setRestockError("Buying price must be 0 or more");
-        payload.costPrice = cp;
+        priceUpdates.rate_per_kg = r;
       }
     } else {
       if (restockPrice.trim() !== "") {
         const pr = Number(restockPrice);
         if (isNaN(pr) || pr < 0) return setRestockError("Selling price must be 0 or more");
-        payload.price = pr;
-      }
-      if (restockCost.trim() !== "") {
-        const cp = Number(restockCost);
-        if (isNaN(cp) || cp < 0) return setRestockError("Buying price must be 0 or more");
-        payload.costPrice = cp;
+        priceUpdates.price = pr;
       }
     }
+    if (restockCost.trim() !== "") {
+      const cp = Number(restockCost);
+      if (isNaN(cp) || cp < 0) return setRestockError("Buying price must be 0 or more");
+      priceUpdates.costPrice = cp;
+    }
+
+    const expiry = restockExpiryDate.trim() !== "" ? restockExpiryDate : null;
+    const mrpVal = restockMrp.trim() !== "" ? Number(restockMrp) : null;
+    if (mrpVal != null && (isNaN(mrpVal) || mrpVal < 0)) return setRestockError("MRP must be 0 or more");
 
     setRestockSaving(true);
     try {
-      await updateProduct(restockProduct.id, payload);
+      // 1) Create the batch — server increments stockQuantity and records expiry/MRP/cost
+      await createProductBatch({
+        productId: restockProduct.id,
+        batchNo: restockBatchNo.trim(),
+        expiryDate: expiry,
+        mrp: mrpVal,
+        costPrice: restockCost.trim() !== "" ? Number(restockCost) : (restockProduct as { costPrice?: number }).costPrice ?? 0,
+        quantity: add,
+      });
+
+      // 2) Update product price/cost if provided (PATCH)
+      if (Object.keys(priceUpdates).length > 0) {
+        await updateProduct(restockProduct.id, priceUpdates);
+      }
+
       setProducts((prev) => prev.map((x) => (x.id === restockProduct.id ? {
         ...x,
         stockQuantity: newQty,
-        ...(payload.price != null ? { price: payload.price as number } : {}),
-        ...(payload.rate_per_kg != null ? { rate_per_kg: payload.rate_per_kg as number } : {}),
-        ...(payload.costPrice != null ? { costPrice: payload.costPrice as number } : {}),
+        ...priceUpdates,
       } : x)));
       void loadMeta();
       setRestockOpen(false);
@@ -482,6 +503,8 @@ export default function InventoryPage() {
             total={meta.total}
             low={meta.low}
             out={meta.out}
+            expiringSoon={meta.expiringSoon}
+            expired={meta.expired}
             categories={meta.categories.length}
             stockValueSell={meta.stockValueSell}
             stockValueCost={meta.stockValueCost}
@@ -610,6 +633,12 @@ export default function InventoryPage() {
         setRate={setRestockRate}
         cost={restockCost}
         setCost={setRestockCost}
+        batchNo={restockBatchNo}
+        setBatchNo={setRestockBatchNo}
+        expiryDate={restockExpiryDate}
+        setExpiryDate={setRestockExpiryDate}
+        mrp={restockMrp}
+        setMrp={setRestockMrp}
         saving={restockSaving}
         error={restockError}
         offline={offline}

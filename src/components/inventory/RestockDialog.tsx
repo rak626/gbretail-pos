@@ -23,6 +23,12 @@ type Props = {
   setRate: (v: string) => void;
   cost: string;
   setCost: (v: string) => void;
+  batchNo: string;
+  setBatchNo: (v: string) => void;
+  expiryDate: string;
+  setExpiryDate: (v: string) => void;
+  mrp: string;
+  setMrp: (v: string) => void;
   saving: boolean;
   error: string;
   offline: boolean;
@@ -30,16 +36,39 @@ type Props = {
   onSave: () => void;
 };
 
-export default function RestockDialog({ open, onOpenChange, product, qty, setQty, price, setPrice, rate, setRate, cost, setCost, saving, error, offline, offlineReason, onSave }: Props) {
+export default function RestockDialog({
+  open,
+  onOpenChange,
+  product,
+  qty,
+  setQty,
+  price,
+  setPrice,
+  rate,
+  setRate,
+  cost,
+  setCost,
+  batchNo,
+  setBatchNo,
+  expiryDate,
+  setExpiryDate,
+  mrp,
+  setMrp,
+  saving,
+  error,
+  offline,
+  offlineReason,
+  onSave,
+}: Props) {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onOpenChange(false)}>
       <DialogContent className="sm:max-w-[480px] p-0 gap-0 overflow-hidden">
         <DialogHeader className="p-5 pb-3">
           <DialogTitle className="text-[15px] flex items-center gap-2">
-            <PackagePlus className="w-4 h-4 text-primary" /> Restock — add purchase quantity
+            <PackagePlus className="w-4 h-4 text-primary" /> Restock — add purchase batch
           </DialogTitle>
           <DialogDescription className="text-[12px]">
-            Existing SKU only. Stock adds up; update prices only if supplier cost changed.
+            Existing SKU only. Creates a batch with expiry/MRP and adds to stock.
           </DialogDescription>
         </DialogHeader>
         {product && (
@@ -77,6 +106,19 @@ export default function RestockDialog({ open, onOpenChange, product, qty, setQty
             </div>
 
             <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-[12px]">Batch number *</Label>
+                <Input value={batchNo} onChange={(e) => setBatchNo(e.target.value)} placeholder="e.g., BATCH-001" className="h-10 text-sm font-mono" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[12px]">Expiry date</Label>
+                <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="h-10 text-sm" />
+                <span className="text-[10px] text-muted-foreground">Leave blank if non-perishable</span>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[12px]">MRP ₹ (printed on pack)</Label>
+                <Input type="number" value={mrp} onChange={(e) => setMrp(e.target.value)} placeholder="e.g., 99" className="h-10 text-sm" />
+              </div>
               {product.is_loose ? (
                 <div className="space-y-1">
                   <Label className="text-[12px]">New rate ₹/kg</Label>
@@ -96,8 +138,8 @@ export default function RestockDialog({ open, onOpenChange, product, qty, setQty
             <div className="text-[11px] text-muted-foreground">Leave a price blank to keep it unchanged. Changing buy price fixes future profit.</div>
 
             <div className="rounded-lg bg-primary/5 border border-primary/20 px-2.5 py-2 text-[11px] space-y-1">
+              <div>• <span className="font-medium">Batch</span> = new supplier purchase with expiry/MRP (FEFO: earliest expiry sells first).</div>
               <div>• <span className="font-medium">− / +</span> in table = counting correction (±1).</div>
-              <div>• <span className="font-medium">Restock</span> = new supplier purchase (adds 40, 100…).</div>
               <div>• <span className="font-medium">Edit</span> = fix name / barcode typo.</div>
             </div>
 

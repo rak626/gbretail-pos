@@ -4,13 +4,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatINR } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { Package, AlertTriangle, Boxes, Wallet } from "lucide-react";
+import { Package, AlertTriangle, Boxes, Wallet, Clock } from "lucide-react";
 import type { ProductStockFilter } from "./types";
 
 type Props = {
   total: number;
   low: number;
   out: number;
+  expiringSoon?: number;
+  expired?: number;
   categories: number;
   stockValueSell?: number;
   stockValueCost?: number;
@@ -19,9 +21,9 @@ type Props = {
   onSelectFilter: (f: ProductStockFilter) => void;
 };
 
-export default function InventoryStats({ total, low, out, categories, stockValueSell, stockValueCost, showCost, activeFilter, onSelectFilter }: Props) {
+export default function InventoryStats({ total, low, out, expiringSoon, expired, categories, stockValueSell, stockValueCost, showCost, activeFilter, onSelectFilter }: Props) {
   const cards: Array<{
-    key: ProductStockFilter | "total" | "value";
+    key: ProductStockFilter | "total" | "value" | "expiring" | "expired";
     label: string;
     value: string;
     sub?: string;
@@ -59,6 +61,24 @@ export default function InventoryStats({ total, low, out, categories, stockValue
       iconClass: "bg-destructive/10 border border-destructive/20 text-destructive",
       active: activeFilter === "out",
       onClick: () => onSelectFilter(activeFilter === "out" ? "all" : "out"),
+    },
+    {
+      key: "expiring",
+      label: "Expiring ≤ 7d",
+      value: String(expiringSoon ?? 0),
+      sub: (expiringSoon ?? 0) > 0 ? "sell first" : "none soon",
+      icon: <Clock className="w-5 h-5" />,
+      iconClass: "bg-amber-100 border border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300",
+      active: false,
+    },
+    {
+      key: "expired",
+      label: "Expired",
+      value: String(expired ?? 0),
+      sub: (expired ?? 0) > 0 ? "remove now" : "none",
+      icon: <Clock className="w-5 h-5" />,
+      iconClass: "bg-destructive/10 border border-destructive/20 text-destructive",
+      active: false,
     },
     {
       key: "value",

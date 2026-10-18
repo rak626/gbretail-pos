@@ -20,6 +20,19 @@ export type Product = {
   imageUrl?: string | null;
 };
 
+export type ProductBatch = {
+  id: string;
+  productId: string;
+  shopId: string;
+  batchNo: string;
+  expiryDate: string | null;
+  mrp: number | null;
+  costPrice: number;
+  quantity: number;
+  receivedAt: string;
+  deletedAt: string | null;
+};
+
 export type LowStockWarning = {
   productId: string;
   name: string;
