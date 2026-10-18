@@ -310,7 +310,7 @@ export default function InventoryPage() {
     setRestockError("");
     const add = Number(restockQty);
     if (!restockQty || isNaN(add) || add <= 0) return setRestockError("Enter valid quantity to add (e.g., 40)");
-    if (!restockBatchNo.trim()) return setRestockError("Batch number is required (e.g., BATCH-001)");
+    if (!restockProduct.is_loose && !restockBatchNo.trim()) return setRestockError("Batch number is required (e.g., BATCH-001)");
 
     const currentStock = restockProduct.stockQuantity ?? 0;
     const newQty = currentStock + add;
@@ -342,15 +342,18 @@ export default function InventoryPage() {
 
     setRestockSaving(true);
     try {
-      // 1) Create the batch — server increments stockQuantity and records expiry/MRP/cost
-      await createProductBatch({
-        productId: restockProduct.id,
-        batchNo: restockBatchNo.trim(),
-        expiryDate: expiry,
-        mrp: mrpVal,
-        costPrice: restockCost.trim() !== "" ? Number(restockCost) : (restockProduct as { costPrice?: number }).costPrice ?? 0,
-        quantity: add,
-      });
+      // 1) Create the batch for packaged items — server increments stockQuantity and records expiry/MRP/cost
+      // Loose items are weighed at counter, so they don't have batches.
+      if (!restockProduct.is_loose) {
+        await createProductBatch({
+          productId: restockProduct.id,
+          batchNo: restockBatchNo.trim(),
+          expiryDate: expiry,
+          mrp: mrpVal,
+          costPrice: restockCost.trim() !== "" ? Number(restockCost) : (restockProduct as { costPrice?: number }).costPrice ?? 0,
+          quantity: add,
+        });
+      }
 
       // 2) Update product price/cost if provided (PATCH)
       if (Object.keys(priceUpdates).length > 0) {

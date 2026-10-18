@@ -105,21 +105,24 @@ export default function RestockDialog({
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-[12px]">Batch number *</Label>
-                <Input value={batchNo} onChange={(e) => setBatchNo(e.target.value)} placeholder="e.g., BATCH-001" className="h-10 text-sm font-mono" />
+            {!product.is_loose && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[12px]">Batch number *</Label>
+                  <Input value={batchNo} onChange={(e) => setBatchNo(e.target.value)} placeholder="e.g., BATCH-001" className="h-10 text-sm font-mono" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[12px]">Expiry date</Label>
+                  <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="h-10 text-sm" />
+                  <span className="text-[10px] text-muted-foreground">Leave blank if non-perishable</span>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[12px]">MRP ₹ (printed on pack)</Label>
+                  <Input type="number" value={mrp} onChange={(e) => setMrp(e.target.value)} placeholder="e.g., 99" className="h-10 text-sm" />
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-[12px]">Expiry date</Label>
-                <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="h-10 text-sm" />
-                <span className="text-[10px] text-muted-foreground">Leave blank if non-perishable</span>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[12px]">MRP ₹ (printed on pack)</Label>
-                <Input type="number" value={mrp} onChange={(e) => setMrp(e.target.value)} placeholder="e.g., 99" className="h-10 text-sm" />
-              </div>
-              {product.is_loose ? (
+            )}
+            {product.is_loose ? (
                 <div className="space-y-1">
                   <Label className="text-[12px]">New rate ₹/kg</Label>
                   <Input type="number" value={rate} onChange={(e) => setRate(e.target.value)} placeholder={String(product.rate_per_kg ?? "")} className="h-10 text-sm" />
@@ -134,7 +137,6 @@ export default function RestockDialog({
                 <Label className="text-[12px]">New buy price ₹</Label>
                 <Input type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder={String((product as { costPrice?: number }).costPrice ?? "")} className="h-10 text-sm" />
               </div>
-            </div>
             <div className="text-[11px] text-muted-foreground">Leave a price blank to keep it unchanged. Changing buy price fixes future profit.</div>
 
             <div className="rounded-lg bg-primary/5 border border-primary/20 px-2.5 py-2 text-[11px] space-y-1">
