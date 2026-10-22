@@ -1,6 +1,6 @@
 import { apiClient, ApiError } from "@/lib/apiClient";
 export { ApiError, API_BASE } from "@/lib/apiClient";
-import type { Product, Customer, Order, LowStockWarning, ProductBatch } from "@/types";
+import type { Product, Customer, Order, LowStockWarning, ProductBatch, MasterProduct, ShopProduct, ShopProductBatch } from "@/types";
 import { db, type OrderQueueItem } from "@/db/database";
 import { generateId } from "@/lib/utils";
 
@@ -94,6 +94,129 @@ export async function createProductBatch(payload: {
     useCatalogStore.getState().invalidate();
   } catch { /* best-effort */ }
   return data.batch;
+}
+
+/** ============================================================================
+ * Master Catalog API — global product definitions shared across all shops.
+ * ============================================================================ */
+
+/** Fetch master products (SUPER_ADMIN only). */
+export async function fetchMasterProducts(params?: {
+  search?: string;
+  category?: string;
+  isActive?: boolean;
+  limit?: number;
+  page?: number;
+}, opts?: { signal?: AbortSignal }) {
+  return apiClient.get<{ masterProducts: MasterProduct[]; total: number; page: number; limit: number }>(
+    "/api/master-products",
+    { search: params?.search, category: params?.category, isActive: params?.isActive !== undefined ? (params.isActive ? "true" : "false") : undefined, limit: params?.limit, page: params?.page },
+    opts
+  );
+}
+
+/** Create a master product (SUPER_ADMIN only). */
+export async function createMasterProduct(payload: {
+  name: string;
+  category: string;
+  brand?: string;
+  barcode?: string;
+  is_loose?: boolean;
+  unit?: string;
+  basePrice?: number;
+  imageUrl?: string;
+  preset_weights?: number[];
+  preset_prices?: number[];
+}, opts?: { signal?: AbortSignal }) {
+  return apiClient.post<{ masterProduct: MasterProduct }>("/api/master-products", payload, opts);
+}
+
+/** Bulk import master products (≤500 rows, SUPER_ADMIN only). */
+export async function createMasterProductsBatch(items: Record<string, unknown>[], opts?: { signal?: AbortSignal }) {
+  return apiClient.post<{ masterProducts: MasterProduct[]; count: number }>("/api/master-products/batch", { items }, opts);
+}
+
+/** Update a master product (SUPER_ADMIN only). */
+export async function updateMasterProduct(id: string, payload: Record<string, unknown>, opts?: { signal?: AbortSignal }) {
+  return apiClient.patch<{ masterProduct: MasterProduct }>(`/api/master-products/${id}`, payload, opts);
+}
+
+/** Soft delete a master product (SUPER_ADMIN only). */
+export async function deleteMasterProduct(id: string, opts?: { signal?: AbortSignal }) {
+  return apiClient.delete<{ success: boolean }>(`/api/master-products/${id}`, opts);
+}
+
+/** ============================================================================
+ * Shop Product API — per-shop listing of master products.
+ * ============================================================================ */
+
+/** Fetch shop products (enabled/disabled master products for the user's shop). */
+export async function fetchShopProducts(params?: {
+  search?: string;
+  category?: string;
+  isEnabled?: boolean;
+  isOnline?: boolean;
+  limit?: number;
+  page?: number;
+}, opts?: { signal?: AbortSignal }) {
+  return apiClient.get<{ shopProducts: ShopProduct[]; total: number; page: number; limit: number }>(
+    "/api/shop-products",
+    {
+      search: params?.search,
+      category: params?.category,
+      isEnabled: params?.isEnabled !== undefined ? (params.isEnabled ? "true" : "false") : undefined,
+      isOnline: params?.isOnline !== undefined ? (params.isOnline ? "true" : "false") : undefined,
+      limit: params?.limit,
+      page: params?.page,
+    },
+    opts
+  );
+}
+
+/** Enable a master product at this shop (create ShopProduct row). */
+export async function enableShopProduct(payload: {
+  masterProductId: string;
+  shopPrice?: number;
+  costPrice?: number;
+  stockQuantity?: number;
+  lowStockThreshold?: number;
+  shopBarcode?: string;
+  isOnline?: boolean;
+  onlinePrice?: number;
+}, opts?: { signal?: AbortSignal }) {
+  return apiClient.post<{ shopProduct: ShopProduct }>("/api/shop-products", payload, opts);
+}
+
+/** Update a shop product (enable/disable, price, stock, etc.). */
+export async function updateShopProduct(id: string, payload: Record<string, unknown>, opts?: { signal?: AbortSignal }) {
+  return apiClient.patch<{ shopProduct: ShopProduct }>(`/api/shop-products/${id}`, payload, opts);
+}
+
+/** Soft delete / disable a shop product. */
+export async function deleteShopProduct(id: string, opts?: { signal?: AbortSignal }) {
+  return apiClient.delete<{ success: boolean }>(`/api/shop-products/${id}`, opts);
+}
+
+/** Receive stock into a new ShopProductBatch. Increments shopProduct stockQuantity. */
+export async function createShopProductBatch(payload: {
+  shopProductId: string;
+  batchNo: string;
+  expiryDate: string | null;
+  mrp: number | null;
+  costPrice: number;
+  quantity: number;
+}, opts?: { signal?: AbortSignal }) {
+  const data = await apiClient.post<{ batch: ShopProductBatch }>("/api/products/batches", payload, opts);
+  try {
+    const { useCatalogStore } = await import("@/store/catalogStore");
+    useCatalogStore.getState().invalidate();
+  } catch { /* best-effort */ }
+  return data.batch;
+}
+
+/** Fetch batches for a shop product. */
+export async function fetchShopProductBatches(params?: { shopProductId?: string; activeOnly?: boolean }, opts?: { signal?: AbortSignal }) {
+  return apiClient.get<{ batches: ShopProductBatch[] }>("/api/products/batches", { productId: params?.shopProductId, activeOnly: params?.activeOnly !== false ? "1" : undefined }, opts);
 }
 
 // Customers

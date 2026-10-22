@@ -285,7 +285,7 @@ export default function OrdersPage() {
           <Card className="py-0 border-primary/20 ring-1 ring-primary/5">
             <CardContent className="p-3 space-y-2.5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <label className="flex items-center gap-2 rounded-lg border bg-muted/20 px-2.5 h-10 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition">
+                <label className="flex items-center gap-2 rounded-lg bg-muted/20 px-2.5 h-10 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition">
                   <Hash className="w-4 h-4 text-primary shrink-0" />
                   <span className="sr-only">Search by bill number</span>
                   <Input
@@ -305,7 +305,7 @@ export default function OrdersPage() {
                     </button>
                   )}
                 </label>
-                <label className="flex items-center gap-2 rounded-lg border bg-muted/20 px-2.5 h-10 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition">
+                <label className="flex items-center gap-2 rounded-lg bg-muted/20 px-2.5 h-10 focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition">
                   <User className="w-4 h-4 text-primary shrink-0" />
                   <span className="sr-only">Search by customer name or phone</span>
                   <Input

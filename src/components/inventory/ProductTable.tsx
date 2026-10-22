@@ -6,20 +6,22 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { formatINR } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { isLowStock, isOutOfStock, lowStockThresholdOf, marginPctOf, marginOf, sellPriceOf, stockStatusOf } from "@/lib/stock";
-import { Check, Copy, Minus, PackagePlus, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, Copy, Minus, PackagePlus, Pencil, Plus, Trash2, ToggleRight, ToggleLeft } from "lucide-react";
 import { useState } from "react";
-import type { Product } from "./types";
+import type { ShopProductView } from "@/types";
 
 type Props = {
-  products: Product[];
+  products: ShopProductView[];
   showCost: boolean;
   offline: boolean;
   offlineReason?: string;
-  onAdjust: (p: Product, delta: number) => void;
-  onRestock: (p: Product) => void;
-  onEdit: (p: Product) => void;
-  onDelete: (p: Product) => void;
-  onOpenProduct: (p: Product) => void;
+  showEnableToggle?: boolean;
+  onAdjust: (p: ShopProductView, delta: number) => void;
+  onRestock: (p: ShopProductView) => void;
+  onEdit: (p: ShopProductView) => void;
+  onDelete: (p: ShopProductView) => void;
+  onOpenProduct: (p: ShopProductView) => void;
+  onToggleEnable?: (p: ShopProductView, enable: boolean) => void;
 };
 
 function BarcodeCell({ barcode }: { barcode?: string | null }) {
@@ -42,7 +44,7 @@ function BarcodeCell({ barcode }: { barcode?: string | null }) {
   );
 }
 
-export default function ProductTable({ products, showCost, offline, offlineReason, onAdjust, onRestock, onEdit, onDelete, onOpenProduct }: Props) {
+export default function ProductTable({ products, showCost, offline, offlineReason, showEnableToggle = false, onAdjust, onRestock, onEdit, onDelete, onOpenProduct, onToggleEnable }: Props) {
   return (
     <Table>
       <TableHeader className="sticky top-0 bg-card z-10 shadow-sm">
@@ -51,6 +53,7 @@ export default function ProductTable({ products, showCost, offline, offlineReaso
           <TableHead className="text-[13px] font-semibold whitespace-nowrap">Price {showCost && <span className="font-normal text-muted-foreground">/ margin</span>}</TableHead>
           <TableHead className="text-[13px] font-semibold text-center min-w-[190px]">Stock</TableHead>
           <TableHead className="text-[13px] font-semibold hidden xl:table-cell">Barcode</TableHead>
+          {showEnableToggle && <TableHead className="text-[13px] font-semibold text-center w-16">Enabled</TableHead>}
           <TableHead className="text-[13px] font-semibold text-right px-4">Actions</TableHead>
         </TableRow>
       </TableHeader>
@@ -66,10 +69,11 @@ export default function ProductTable({ products, showCost, offline, offlineReaso
           const margin = marginOf(p as unknown as Parameters<typeof marginOf>[0]);
           const marginPct = marginPctOf(p as unknown as Parameters<typeof marginPctOf>[0]);
           const healthPct = threshold > 0 ? Math.min(100, Math.max(4, (stock / (threshold * 3)) * 100)) : stock > 0 ? 100 : 0;
+          const isEnabled = (p as any).isEnabled ?? true;
           return (
-            <TableRow key={p.id} className={cn("h-[68px]", isOut && "bg-destructive/[0.04]")}>
+            <TableRow key={p.id} className={cn("h-[68px]", isOut && "bg-destructive/[0.04]", !isEnabled && "bg-muted/30")}>
               <TableCell className="py-3 px-4 max-w-[320px]">
-                <button className="font-semibold text-sm leading-tight line-clamp-1 text-left hover:text-primary hover:underline underline-offset-2" onClick={() => onOpenProduct(p)} title={`${p.name} — open details`}>
+                <button className="font-semibold text-sm leading-tight line-clamp-1 text-left hover:text-primary hover:underline underline-offset-2" onClick={() => onOpenProduct(p)} title={`${p.name} — open details`} disabled={!isEnabled}>
                   {p.name}
                 </button>
                 <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
@@ -78,12 +82,13 @@ export default function ProductTable({ products, showCost, offline, offlineReaso
                   {p.is_loose ? (
                     <Badge variant="secondary" className="text-[11px] h-5 px-1.5">Loose /kg</Badge>
                   ) : null}
+                  {!isEnabled && <Badge variant="outline" className="text-[11px] h-5 px-1.5 border-muted">Disabled</Badge>}
                   <span className="text-[11px] font-mono text-muted-foreground xl:hidden">{p.barcode ? `• ${p.barcode.slice(0, 8)}…` : ""}</span>
                 </div>
               </TableCell>
               <TableCell className="whitespace-nowrap align-top py-3">
                 <div className="text-sm font-bold tabular-nums">
-                  {p.is_loose ? `${formatINR(p.rate_per_kg || 0)}/kg` : formatINR(p.price || 0)}
+                  {p.is_loose ? `${formatINR(p.basePrice ?? 0)}/kg` : formatINR(p.shopPrice ?? p.basePrice ?? 0)}
                 </div>
                 {showCost ? (
                   <div className="text-[11px] text-muted-foreground tabular-nums mt-0.5" title={`Buy ${(p as { costPrice?: number }).costPrice != null ? formatINR((p as { costPrice?: number }).costPrice ?? 0) : "—"} → Sell ${formatINR(sell)}`}>
@@ -98,13 +103,13 @@ export default function ProductTable({ products, showCost, offline, offlineReaso
               </TableCell>
               <TableCell className="text-center align-top py-3">
                 <div className="flex items-center justify-center gap-1.5">
-                  <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => onAdjust(p, -1)} disabled={stock <= 0 || offline} title={offline ? offlineReason : "Correct stock −1 (for counting fixes; use Restock for new purchases)"}>
+                  <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => onAdjust(p, -1)} disabled={!isEnabled || stock <= 0 || offline} title={offline ? offlineReason : !isEnabled ? "Product disabled at this shop" : "Correct stock −1 (for counting fixes; use Restock for new purchases)"}>
                     <Minus className="w-4 h-4" />
                   </Button>
                   <button
                     onClick={() => onRestock(p)}
-                    disabled={offline}
-                    title={offline ? offlineReason : `Restock ${p.name} — add purchase qty (now ${stock} ${unit}, warn at ≤ ${threshold})`}
+                    disabled={!isEnabled || offline}
+                    title={offline ? offlineReason : !isEnabled ? "Enable product first" : `Restock ${p.name} — add purchase qty (now ${stock} ${unit}, warn at ≤ ${threshold})`}
                     className={cn(
                       "min-w-[64px] h-9 px-2 rounded-md border font-mono text-sm font-bold tabular-nums transition-colors",
                       isOut ? "bg-destructive/10 border-destructive/30 text-destructive hover:bg-destructive/15"
@@ -114,7 +119,7 @@ export default function ProductTable({ products, showCost, offline, offlineReaso
                   >
                     {stock}
                   </button>
-                  <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => onAdjust(p, 1)} disabled={offline} title={offline ? offlineReason : "Correct stock +1 (for counting fixes; use Restock for new purchases)"}>
+                  <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => onAdjust(p, 1)} disabled={!isEnabled || offline} title={offline ? offlineReason : !isEnabled ? "Product disabled at this shop" : "Correct stock +1 (for counting fixes; use Restock for new purchases)"}>
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
@@ -128,8 +133,22 @@ export default function ProductTable({ products, showCost, offline, offlineReaso
                 </div>
               </TableCell>
               <TableCell className="hidden xl:table-cell">
-                <BarcodeCell barcode={p.barcode} />
+                <BarcodeCell barcode={p.shopBarcode ?? p.barcode} />
               </TableCell>
+              {showEnableToggle && (
+                <TableCell className="text-center align-top py-3">
+                  <Button
+                    variant={isEnabled ? "default" : "outline"}
+                    size="icon-sm"
+                    onClick={() => onToggleEnable?.(p, !isEnabled)}
+                    disabled={offline}
+                    title={offline ? offlineReason : isEnabled ? "Disable product at this shop" : "Enable product at this shop"}
+                    className="h-8 w-8"
+                  >
+                    {isEnabled ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+                  </Button>
+                </TableCell>
+              )}
               <TableCell className="text-right px-4 align-middle">
                 <div className="flex justify-end gap-1.5">
                   <Button
@@ -137,12 +156,12 @@ export default function ProductTable({ products, showCost, offline, offlineReaso
                     size="sm"
                     className="h-9 bg-primary/5 border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground"
                     onClick={() => onRestock(p)}
-                    disabled={offline}
-                    title={offline ? offlineReason : "Restock — add new purchase qty & update price if supplier cost changed"}
+                    disabled={!isEnabled || offline}
+                    title={offline ? offlineReason : !isEnabled ? "Enable product first" : "Restock — add new purchase qty & update price if supplier cost changed"}
                   >
                     <PackagePlus className="w-4 h-4" /> <span className="hidden 2xl:inline">Restock</span>
                   </Button>
-                  <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => onEdit(p)} disabled={offline} title={offline ? offlineReason : "Edit name, category, barcode, prices"}>
+                  <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => onEdit(p)} disabled={!isEnabled || offline} title={offline ? offlineReason : !isEnabled ? "Enable product first" : "Edit name, category, barcode, prices"}>
                     <Pencil className="w-4 h-4" />
                   </Button>
                   <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:bg-destructive/10" onClick={() => onDelete(p)} disabled={offline} title={offline ? offlineReason : "Delete (soft — past orders keep history)"}>

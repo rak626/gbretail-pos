@@ -33,6 +33,60 @@ export type ProductBatch = {
   deletedAt: string | null;
 };
 
+/** Master catalog — global product definition shared across all shops. */
+export type MasterProduct = {
+  id: string;
+  name: string;
+  category: string;
+  brand: string | null;
+  barcode: string | null;
+  is_loose: boolean;
+  unit: string;
+  basePrice: number | null;
+  imageUrl: string | null;
+  preset_weights: number[];
+  preset_prices: number[];
+  isActive: boolean;
+  deletedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** Per-shop product listing — links a shop to a master product. */
+export type ShopProduct = {
+  id: string;
+  shopId: string;
+  masterProductId: string;
+  masterProduct: MasterProduct;
+  isEnabled: boolean;
+  shopPrice: number | null;
+  costPrice: number;
+  stockQuantity: number;
+  lowStockThreshold: number;
+  shopBarcode: string | null;
+  isOnline: boolean;
+  onlinePrice: number | null;
+  deletedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** Per-shop batch with expiry/MRP tracking. */
+export type ShopProductBatch = {
+  id: string;
+  shopProductId: string;
+  shopProduct: ShopProduct;
+  batchNo: string;
+  expiryDate: string | null;
+  mrp: number | null;
+  costPrice: number;
+  quantity: number;
+  receivedAt: string;
+  deletedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type LowStockWarning = {
   productId: string;
   name: string;
@@ -45,6 +99,8 @@ export type OrderItem = {
   id?: string;
   orderId?: string;
   productId?: string | null;
+  shopProductId?: string | null;
+  shopProductBatchId?: string | null;
   name: string;
   price: number;
   unit: string;
@@ -54,6 +110,35 @@ export type OrderItem = {
   isCustom: boolean;
   costPrice?: number | null;
   category?: string | null;
+};
+
+/** Shop product view for POS inventory - combines MasterProduct + ShopProduct */
+export type ShopProductView = {
+  id: string;
+  name: string;
+  category: string;
+  brand: string | null;
+  barcode: string | null;
+  is_loose: boolean;
+  unit: string;
+  basePrice: number | null;
+  imageUrl: string | null;
+  preset_weights: number[];
+  preset_prices: number[];
+  isActive: boolean;
+  shopProductId: string | null;
+  isEnabled: boolean;
+  shopPrice: number | null;
+  costPrice: number;
+  stockQuantity: number;
+  lowStockThreshold: number;
+  shopBarcode: string | null;
+  isOnline: boolean;
+  onlinePrice: number | null;
+  status: "out" | "low" | "ok";
+  isLow: boolean;
+  isOut: boolean;
+  createdAt: string;
 };
 
 export type Customer = {

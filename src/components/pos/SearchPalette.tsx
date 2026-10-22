@@ -125,7 +125,7 @@ export default function SearchPalette() {
         <DialogHeader className="sr-only">
           <DialogTitle>Search products</DialogTitle>
         </DialogHeader>
-        <div className="flex items-center gap-3 px-5 h-[68px]">
+        <div className="flex items-center gap-3 px-5 h-17">
           {searching ? (
             <Loader2
               className="w-6 h-6 animate-spin text-muted-foreground shrink-0"
