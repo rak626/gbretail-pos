@@ -22,8 +22,13 @@ export type Shop = {
   code?: string | null;
   name: string;
   address?: string | null;
+  city?: string | null;
   receiptName?: string | null;
   gstin?: string | null;
+  gstDate?: string | null;
+  fssai?: string | null;
+  companyName?: string | null;
+  franchiseNote?: string | null;
   upiId?: string | null;
   phone?: string | null;
   receiptFooter?: string | null;

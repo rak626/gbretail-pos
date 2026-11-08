@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { formatINR } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { isLowStock, isOutOfStock, lowStockThresholdOf, marginPctOf, marginOf, sellPriceOf, stockStatusOf } from "@/lib/stock";
+import { isLowStock, isOutOfStock, lowStockThresholdOf, marginPctOf, marginOf, sellPriceOf, stockStatusOf, batchExpiryStatus, daysUntilExpiry } from "@/lib/stock";
 import { Check, Copy, Minus, PackagePlus, Pencil, Plus, Trash2, ToggleRight, ToggleLeft } from "lucide-react";
 import { useState } from "react";
 import type { ShopProductView } from "@/types";
@@ -70,8 +70,11 @@ export default function ProductTable({ products, showCost, offline, offlineReaso
           const marginPct = marginPctOf(p as unknown as Parameters<typeof marginPctOf>[0]);
           const healthPct = threshold > 0 ? Math.min(100, Math.max(4, (stock / (threshold * 3)) * 100)) : stock > 0 ? 100 : 0;
           const isEnabled = (p as any).isEnabled ?? true;
+          const expiryStatus = (p as any).expiryStatus ?? "ok";
+          const nearestExpiry = (p as any).nearestExpiry ?? null;
+          const daysToExpiry = nearestExpiry ? daysUntilExpiry(nearestExpiry) : null;
           return (
-            <TableRow key={p.id} className={cn("h-[68px]", isOut && "bg-destructive/[0.04]", !isEnabled && "bg-muted/30")}>
+            <TableRow key={p.id} className={cn("h-[68px]", isOut && "bg-destructive/[0.04]", !isEnabled && "bg-muted/30", expiryStatus === "expired" && "bg-destructive/[0.03]")}>
               <TableCell className="py-3 px-4 max-w-[320px]">
                 <button className="font-semibold text-sm leading-tight line-clamp-1 text-left hover:text-primary hover:underline underline-offset-2" onClick={() => onOpenProduct(p)} title={`${p.name} — open details`} disabled={!isEnabled}>
                   {p.name}
@@ -83,6 +86,8 @@ export default function ProductTable({ products, showCost, offline, offlineReaso
                     <Badge variant="secondary" className="text-[11px] h-5 px-1.5">Loose /kg</Badge>
                   ) : null}
                   {!isEnabled && <Badge variant="outline" className="text-[11px] h-5 px-1.5 border-muted">Disabled</Badge>}
+                  {expiryStatus === "expired" && <Badge variant="destructive" className="text-[10px] h-5 px-1.5">Expired</Badge>}
+                  {expiryStatus === "expiring" && <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-amber-300 text-amber-900">Expiring {daysToExpiry != null ? `in ${daysToExpiry}d` : "soon"}</Badge>}
                   <span className="text-[11px] font-mono text-muted-foreground xl:hidden">{p.barcode ? `• ${p.barcode.slice(0, 8)}…` : ""}</span>
                 </div>
               </TableCell>

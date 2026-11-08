@@ -11,7 +11,13 @@ export function useReceiptShop(): ReceiptShop | null {
     name: shop.name,
     receiptName: shop.receiptName,
     address: shop.address,
+    city: shop.city,
     gstin: shop.gstin,
+    gstDate: shop.gstDate,
+    fssai: shop.fssai,
+    companyName: shop.companyName,
+    franchiseNote: shop.franchiseNote,
+    upiId: shop.upiId,
     phone: shop.phone,
     receiptFooter: shop.receiptFooter,
   };

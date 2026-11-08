@@ -477,6 +477,30 @@ export async function fetchAnalyticsSummary(params?: { preset?: string; from?: s
     range: { preset: string; label: string; start: string; end: string; granularity: string };
     prevRange: { start: string; end: string };
     kpis: { orders: number; gross: number; discount: number; netRevenue: number; profitGross: number; profit: number; profitPositive: number; loss: number; avgOrderValue: number; marginPct: number; topCategory: string | null; delta: Record<string, number | null>; prev: Record<string, number> };
+    inventory: {
+      stockValue: number;
+      totalStockedProducts: number;
+      outOfStockCount: number;
+      lowStockCount: number;
+      stockOutRate: number;
+      deadStockCount: number;
+      deadStockValue: number;
+      slowMovers: { name: string; qty: number; stock: number; stockValue: number; sellThroughRate: number }[];
+    };
+    customers: {
+      totalCustomers: number;
+      customersWithOrders: number;
+      repeatCustomers: number;
+      customerLifetimeValue: number;
+      repeatPurchaseRate: number;
+      cohortRetentionPct: number;
+    };
+    operations: {
+      peakHour: number | null;
+      peakDay: string | null;
+      basketSize: number;
+      discountRate: number;
+    };
     timeseries: { bucket: string; label: string; orders: number; gross: number; netRevenue: number; profit: number; loss: number; netProfit: number }[];
     topProducts: { productId: string | null; name: string; category: string; qty: number; gross: number; profit: number }[];
     topByRevenue: { productId: string | null; name: string; category: string; qty: number; gross: number; profit: number }[];

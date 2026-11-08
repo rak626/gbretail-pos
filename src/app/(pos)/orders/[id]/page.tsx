@@ -10,7 +10,9 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Separator } from "@/components/ui/separator";
 import { formatINR } from "@/lib/utils";
 import { generateReceiptHTML, printReceiptHTML } from "@/lib/print";
+import { derivePayments } from "@/lib/receipt/payments";
 import { useReceiptShop } from "@/hooks/useReceiptShop";
+import { useReceiptMeta } from "@/hooks/useReceiptMeta";
 import { ArrowLeft, Calendar, User, Phone, CreditCard, ShoppingBag, Printer, Receipt } from "lucide-react";
 import type { Order } from "@/db/database";
 import { fetchOrder } from "@/lib/api";
@@ -22,6 +24,7 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const receiptShop = useReceiptShop();
+  const receiptMeta = useReceiptMeta();
 
   useEffect(() => {
     const load = async () => {
@@ -51,14 +54,30 @@ export default function OrderDetailPage() {
       unit: (it as any).unit,
       isCustom: (it as any).isCustom,
       lineTotal: it.lineTotal,
+      articleCode: (it as any).productId ? String((it as any).productId).slice(-10) : undefined,
     }));
-    const customer = (order as unknown as { customer?: { name: string } }).customer;
+    const customer = (order as unknown as { customer?: { name: string; phone: string | null } }).customer;
     const custLabel = customer?.name || (order.customerId ? "Customer" : undefined);
-    const t = order as unknown as { cashAmount?: number | null; upiAmount?: number | null };
+    const t = order as unknown as { cashAmount?: number | null; upiAmount?: number | null; orderNumber?: string; createdAt?: string | number };
     const label = order.paymentMethod === "split" && t.cashAmount != null && t.upiAmount != null
       ? `${custLabel ? `${custLabel} ` : ""}(Split: Cash ${formatINR(t.cashAmount)} + UPI ${formatINR(t.upiAmount)})`
       : custLabel;
-    const html = generateReceiptHTML(items as any, order.total, order.discount || 0, label, (order as unknown as { orderNumber?: string }).orderNumber || order.id, receiptShop);
+    const billNo = t.orderNumber || order.id;
+    const payments = derivePayments({
+      paymentMethod: order.paymentMethod,
+      cashAmount: t.cashAmount,
+      upiAmount: t.upiAmount,
+      total: order.total,
+      upiId: receiptShop?.upiId,
+      customerName: customer?.name,
+    });
+    const html = generateReceiptHTML(items as any, order.total, order.discount || 0, label, billNo, receiptShop, {
+      ...receiptMeta,
+      billNo,
+      billDate: t.createdAt ?? new Date(),
+      payments,
+      customerPhone: customer?.phone ?? null,
+    });
     printReceiptHTML(html);
   };
 

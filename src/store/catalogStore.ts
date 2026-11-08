@@ -4,16 +4,22 @@ import { db } from "@/db/database";
 import type { Product } from "@/types";
 
 const PAGE_SIZE = 200;
+const CACHE_STALE_MS = 30 * 60 * 1000; // 30 minutes
 
 type CatalogState = {
   products: Product[];
   loaded: boolean;
   loading: boolean;
   error: string;
-  /** Backend is the source of truth; Dexie holds the last good copy as a speed cache (online-only). */
-  loadCatalog: (force?: boolean) => Promise<void>;
+  shopId: string | null;
+  cachedAt: number | null;
+  isStale: boolean;
+  /** Backend is the source of truth; Dexie holds the last good copy as a speed cache. */
+  loadCatalog: (force?: boolean, shopId?: string) => Promise<void>;
   /** Mark stale after inventory mutations — next loadCatalog(true) refetches. */
   invalidate: () => void;
+  /** Set the active shop context for per-shop cache isolation. */
+  setShop: (shopId: string | null) => void;
 };
 
 export const useCatalogStore = create<CatalogState>()((set, get) => ({
@@ -21,13 +27,19 @@ export const useCatalogStore = create<CatalogState>()((set, get) => ({
   loaded: false,
   loading: false,
   error: "",
+  shopId: null,
+  cachedAt: null,
+  isStale: false,
 
-  invalidate: () => set({ loaded: false }),
+  invalidate: () => set({ loaded: false, isStale: true }),
 
-  loadCatalog: async (force = false) => {
-    const { loaded, loading } = get();
+  setShop: (shopId) => set({ shopId, loaded: false }),
+
+  loadCatalog: async (force = false, shopIdParam?: string) => {
+    const { loaded, loading, shopId } = get();
+    const effectiveShopId = shopIdParam ?? shopId;
     if ((loaded && !force) || loading) return;
-    set({ loading: true, error: "" });
+    set({ loading: true, error: "", shopId: effectiveShopId });
     try {
       // Page through the whole catalog — never silently truncate at 200 SKUs.
       const all: Product[] = [];
@@ -39,23 +51,29 @@ export const useCatalogStore = create<CatalogState>()((set, get) => ({
         page += 1;
         if (page > 50) break; // 10k SKU sanity cap
       }
-      const items = all;
+      const items = all.map((p) => ({ ...p, shopId: effectiveShopId, cachedAt: Date.now() }));
       try {
         await db.products.clear();
         if (items.length) await db.products.bulkAdd(items);
       } catch {
         // cache write failure must not break billing
       }
-      set({ products: items, loaded: true, loading: false });
+      set({ products: items, loaded: true, loading: false, cachedAt: Date.now(), isStale: false });
     } catch (e) {
-      // Offline / backend down: serve the last cached catalog
+      // Offline / backend down: serve the last cached catalog for this shop
       try {
-        const cached = await db.products.toArray();
+        const cached = effectiveShopId
+          ? await db.products.where("shopId").equals(effectiveShopId).toArray()
+          : await db.products.toArray();
+        const now = Date.now();
+        const stale = cached.some((p) => !p.cachedAt || now - p.cachedAt > CACHE_STALE_MS);
         set({
           products: cached,
           loaded: true,
           loading: false,
           error: cached.length ? "" : e instanceof Error ? e.message : "Failed to load catalog",
+          cachedAt: cached.length ? Math.max(...cached.map((p) => p.cachedAt ?? 0)) : null,
+          isStale: stale,
         });
       } catch {
         set({ loading: false, error: e instanceof Error ? e.message : "Failed to load catalog" });

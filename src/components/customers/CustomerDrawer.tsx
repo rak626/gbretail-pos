@@ -14,7 +14,9 @@ import { useConfirm } from "@/components/confirm-dialog";
 import { useOfflineBlock } from "@/hooks/useOfflineBlock";
 import { formatINR } from "@/lib/utils";
 import { generateReceiptHTML, printReceiptHTML } from "@/lib/print";
+import { derivePayments } from "@/lib/receipt/payments";
 import { useReceiptShop } from "@/hooks/useReceiptShop";
+import { useReceiptMeta } from "@/hooks/useReceiptMeta";
 import type { Customer } from "@/db/database";
 import CustomerFormDialog from "./CustomerFormDialog";
 import {
@@ -82,6 +84,7 @@ export default function CustomerDrawer({ open, onOpenChange, customerId, onDelet
   const { confirm, notify } = useConfirm();
   const { offline, block, reason } = useOfflineBlock(notify);
   const receiptShop = useReceiptShop();
+  const receiptMeta = useReceiptMeta();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [customer, setCustomer] = useState<(Customer & { email?: string | null; address?: string | null; notes?: string | null; creditLimit?: number | null }) | null>(null);
@@ -443,8 +446,23 @@ export default function CustomerDrawer({ open, onOpenChange, customerId, onDelet
                                     unit: it.unit,
                                     isCustom: it.isCustom,
                                     lineTotal: it.lineTotal,
+                                    articleCode: it.productId ? String(it.productId).slice(-10) : undefined,
                                   }));
-                                  const html = generateReceiptHTML(items as any, o.total, o.discount || 0, customer.name, o.orderNumber || o.id, receiptShop);
+                                  const payments = derivePayments({
+                                    paymentMethod: o.paymentMethod,
+                                    cashAmount: o.cashAmount,
+                                    upiAmount: o.upiAmount,
+                                    total: o.total,
+                                    upiId: receiptShop?.upiId,
+                                    customerName: customer.name,
+                                  });
+                                  const html = generateReceiptHTML(items as any, o.total, o.discount || 0, customer.name, o.orderNumber || o.id, receiptShop, {
+                                    ...receiptMeta,
+                                    billNo: o.orderNumber || o.id,
+                                    billDate: o.createdAt,
+                                    payments,
+                                    customerPhone: customer.phone ?? null,
+                                  });
                                   printReceiptHTML(html);
                                 };
                                 return (

@@ -8,7 +8,12 @@ import { Receipt } from "lucide-react";
 
 export type ReceiptDraft = {
   receiptName: string;
+  city: string;
+  companyName: string;
   gstin: string;
+  gstDate: string;
+  fssai: string;
+  franchiseNote: string;
   upiId: string;
   phone: string;
   receiptFooter: string;
@@ -69,6 +74,57 @@ export default function ReceiptDrawer({ open, onOpenChange, draft, setDraft, err
                 placeholder="15-char GSTIN"
                 className="h-10 text-sm font-mono"
                 maxLength={15}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[13px]">GST date</Label>
+                <Input
+                  type="date"
+                  value={draft.gstDate}
+                  onChange={(e) => setDraft({ ...draft, gstDate: e.target.value })}
+                  className="h-10 text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[13px]">FSSAI licence</Label>
+                <Input
+                  value={draft.fssai}
+                  onChange={(e) => setDraft({ ...draft, fssai: e.target.value })}
+                  placeholder="Licence number"
+                  className="h-10 text-sm font-mono"
+                  maxLength={20}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px]">City</Label>
+              <Input
+                value={draft.city}
+                onChange={(e) => setDraft({ ...draft, city: e.target.value })}
+                placeholder="City printed under the store name"
+                className="h-10 text-sm"
+                maxLength={100}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px]">Company / legal entity</Label>
+              <Input
+                value={draft.companyName}
+                onChange={(e) => setDraft({ ...draft, companyName: e.target.value })}
+                placeholder="Registered company name"
+                className="h-10 text-sm"
+                maxLength={120}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px]">Franchise note</Label>
+              <Input
+                value={draft.franchiseNote}
+                onChange={(e) => setDraft({ ...draft, franchiseNote: e.target.value })}
+                placeholder="e.g. A franchise store operated by …"
+                className="h-10 text-sm"
+                maxLength={200}
               />
             </div>
             <div className="space-y-1.5">

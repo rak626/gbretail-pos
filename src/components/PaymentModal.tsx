@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useCartStore } from "@/store/cartStore";
 import { formatINR, formatUPIPaymentUrl } from "@/lib/utils";
-import { generateReceiptHTML, printReceiptHTML } from "@/lib/print";
+import { generateReceiptHTML, printReceiptHTML, type ReceiptPayment } from "@/lib/print";
+import { derivePayments } from "@/lib/receipt/payments";
 import { createOrder, settleOrder, fetchOrder } from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { useOnlineStore } from "@/store/onlineStore";
 import { useReceiptShop } from "@/hooks/useReceiptShop";
+import { useReceiptMeta } from "@/hooks/useReceiptMeta";
 import { OFFLINE_REASON } from "@/hooks/useOfflineBlock";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -56,6 +58,7 @@ export default function PaymentModal() {
   const online = useOnlineStore((s) => s.online);
   const checkNow = useOnlineStore((s) => s.checkNow);
   const receiptShop = useReceiptShop();
+  const receiptMeta = useReceiptMeta();
   const offline = !online;
   const grandTotal = calculateGrandTotal();
 
@@ -94,17 +97,27 @@ export default function PaymentModal() {
       unit: item.unit,
       isCustom: item.isCustom,
       lineTotal: item.lineTotal,
+      articleCode: item.productId ? String(item.productId).slice(-10) : undefined,
     }));
 
   const printReceipt = (
-    orderItems: { name: string; lineTotal: number; qty?: string; rate?: string; price?: number; perUnit?: string; unit?: string; quantity?: number | null; weight?: number | null; isCustom?: boolean }[],
+    orderItems: { name: string; lineTotal: number; qty?: string; rate?: string; price?: number; perUnit?: string; unit?: string; quantity?: number | null; weight?: number | null; isCustom?: boolean; articleCode?: string }[],
     total: number,
     disc: number,
     custName?: string,
-    orderNumber?: string
+    orderNumber?: string,
+    payments?: ReceiptPayment[],
+    phone?: string | null
   ) => {
     // Never print a fake server number: unconfirmed prints are watermarked, not numbered.
-    const html = generateReceiptHTML(orderItems as any, total, disc, custName, orderNumber ?? `DRAFT — NOT SAVED`, receiptShop);
+    const billNo = orderNumber ?? `DRAFT — NOT SAVED`;
+    const html = generateReceiptHTML(orderItems as any, total, disc, custName, billNo, receiptShop, {
+      ...receiptMeta,
+      billNo,
+      billDate: new Date(),
+      payments,
+      customerPhone: phone ?? currentCustomer?.phone ?? null,
+    });
     const ok = printReceiptHTML(html);
     if (!ok) {
       // Popup blocked and iframe failed — surface via console + alert fallback (kiosk safe).
@@ -192,9 +205,9 @@ export default function PaymentModal() {
     return false;
   };
 
-  const finishSettledSale = (orderNumber: string | undefined) => {
+  const finishSettledSale = (orderNumber: string | undefined, payments?: ReceiptPayment[]) => {
     const orderItems = buildReceiptItems();
-    printReceipt(orderItems, grandTotal, discount, currentCustomer?.name, orderNumber);
+    printReceipt(orderItems, grandTotal, discount, currentCustomer?.name, orderNumber, payments);
     recordRecentOnSale();
     closePaymentModal();
     clearCart();
@@ -207,7 +220,7 @@ export default function PaymentModal() {
     if (pickupOrder) {
       const settled = await settlePickup("cash");
       if (!settled) return fail();
-      finishSettledSale(settled.orderNumber);
+      finishSettledSale(settled.orderNumber, derivePayments({ paymentMethod: "cash", total: grandTotal }));
       return;
     }
     const saved = await saveOrder("cash");
@@ -221,7 +234,7 @@ export default function PaymentModal() {
     }
     const orderNumber = (saved as unknown as { orderNumber?: string })?.orderNumber;
     const orderItems = buildReceiptItems();
-    printReceipt(orderItems, grandTotal, discount, currentCustomer?.name, orderNumber);
+    printReceipt(orderItems, grandTotal, discount, currentCustomer?.name, orderNumber, derivePayments({ paymentMethod: "cash", total: grandTotal }));
     recordRecentOnSale();
     closePaymentModal();
     clearCart();
@@ -236,7 +249,7 @@ export default function PaymentModal() {
     if (pickupOrder) {
       const settled = await settlePickup("upi");
       if (!settled) return fail();
-      setTimeout(() => finishSettledSale(settled.orderNumber), 1500);
+      setTimeout(() => finishSettledSale(settled.orderNumber, derivePayments({ paymentMethod: "upi", total: grandTotal, upiId: receiptShop?.upiId })), 1500);
       return;
     }
     const saved = await saveOrder("upi");
@@ -251,7 +264,7 @@ export default function PaymentModal() {
     const orderNumber = (saved as unknown as { orderNumber?: string })?.orderNumber;
     const orderItems = buildReceiptItems();
     setTimeout(() => {
-      printReceipt(orderItems, grandTotal, discount, currentCustomer?.name, orderNumber);
+      printReceipt(orderItems, grandTotal, discount, currentCustomer?.name, orderNumber, derivePayments({ paymentMethod: "upi", total: grandTotal, upiId: receiptShop?.upiId }));
       recordRecentOnSale();
       closePaymentModal();
       clearCart();
@@ -295,7 +308,7 @@ export default function PaymentModal() {
     }
     const orderNumber = (saved as unknown as { orderNumber?: string })?.orderNumber;
     const orderItems = buildReceiptItems();
-    printReceipt(orderItems, grandTotal, discount, name, orderNumber);
+    printReceipt(orderItems, grandTotal, discount, name, orderNumber, derivePayments({ paymentMethod: "khata", total: grandTotal, customerName: name }), phone);
     recordRecentOnSale();
     closePaymentModal();
     clearCart();
@@ -313,7 +326,7 @@ export default function PaymentModal() {
       if (!settled) return fail();
       const orderItems = buildReceiptItems();
       const label = currentCustomer?.name ? `${currentCustomer.name} (Split: Cash ${formatINR(cash)} + UPI ${formatINR(upi)})` : `Split: Cash ${formatINR(cash)} + UPI ${formatINR(upi)}`;
-      printReceipt(orderItems, grandTotal, discount, label, settled.orderNumber);
+      printReceipt(orderItems, grandTotal, discount, label, settled.orderNumber, derivePayments({ paymentMethod: "split", cashAmount: cash, upiAmount: upi, total: grandTotal, upiId: receiptShop?.upiId }));
       recordRecentOnSale();
       closePaymentModal();
       clearCart();
@@ -332,7 +345,7 @@ export default function PaymentModal() {
     const orderNumber = (saved as unknown as { orderNumber?: string })?.orderNumber;
     const orderItems = buildReceiptItems();
     const label = currentCustomer?.name ? `${currentCustomer.name} (Split: Cash ${formatINR(cash)} + UPI ${formatINR(upi)})` : `Split: Cash ${formatINR(cash)} + UPI ${formatINR(upi)}`;
-    printReceipt(orderItems, grandTotal, discount, label, orderNumber);
+    printReceipt(orderItems, grandTotal, discount, label, orderNumber, derivePayments({ paymentMethod: "split", cashAmount: cash, upiAmount: upi, total: grandTotal, upiId: receiptShop?.upiId }));
     recordRecentOnSale();
     closePaymentModal();
     clearCart();

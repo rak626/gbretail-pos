@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useCartStore } from "@/store/cartStore";
 import { useReceiptShop } from "@/hooks/useReceiptShop";
+import { useReceiptMeta } from "@/hooks/useReceiptMeta";
 import { generateReceiptHTML, printReceiptHTML } from "@/lib/print";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ export default function QuickActions() {
   const [showDisc, setShowDisc] = useState(false);
   const [val, setVal] = useState("");
   const receiptShop = useReceiptShop();
+  const receiptMeta = useReceiptMeta();
 
   const doDisc = () => {
     const n = parseFloat(val);
@@ -41,6 +43,7 @@ export default function QuickActions() {
       unit: item.unit,
       isCustom: item.isCustom,
       lineTotal: item.lineTotal,
+      articleCode: item.productId ? String(item.productId).slice(-10) : undefined,
     }));
     // Manual pre-bill print: explicitly unconfirmed (no server number invented).
     const html = generateReceiptHTML(
@@ -50,6 +53,7 @@ export default function QuickActions() {
       undefined,
       `DRAFT — NOT SAVED`,
       receiptShop,
+      { ...receiptMeta, billDate: new Date(), isDraft: true },
     );
     printReceiptHTML(html);
   };

@@ -51,7 +51,18 @@ export default function SettingsPage() {
   // Receipt identity form (per-shop bill header). Hydrated from the shop record
   // (login/me only carry id+name-era snapshots for old sessions).
   // Edited in a modal; the card below shows a compact summary row.
-  const [receipt, setReceipt] = useState<ReceiptDraft>({ receiptName: "", gstin: "", upiId: "", phone: "", receiptFooter: "" });
+  const [receipt, setReceipt] = useState<ReceiptDraft>({
+    receiptName: "",
+    city: "",
+    companyName: "",
+    gstin: "",
+    gstDate: "",
+    fssai: "",
+    franchiseNote: "",
+    upiId: "",
+    phone: "",
+    receiptFooter: "",
+  });
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptSaving, setReceiptSaving] = useState(false);
   const [receiptError, setReceiptError] = useState("");
@@ -86,7 +97,12 @@ export default function SettingsPage() {
         const str = (v: unknown) => (v == null ? "" : String(v));
         setReceipt({
           receiptName: str(s.receiptName),
+          city: str(s.city),
+          companyName: str(s.companyName),
           gstin: str(s.gstin),
+          gstDate: str(s.gstDate),
+          fssai: str(s.fssai),
+          franchiseNote: str(s.franchiseNote),
           upiId: str(s.upiId),
           phone: str(s.phone),
           receiptFooter: str(s.receiptFooter),
@@ -99,7 +115,12 @@ export default function SettingsPage() {
         const str = (v: unknown) => (v == null ? "" : String(v));
         setReceipt({
           receiptName: str(s.receiptName),
+          city: str(s.city),
+          companyName: str(s.companyName),
           gstin: str(s.gstin),
+          gstDate: str(s.gstDate),
+          fssai: str(s.fssai),
+          franchiseNote: str(s.franchiseNote),
           upiId: str(s.upiId),
           phone: str(s.phone),
           receiptFooter: str(s.receiptFooter),
@@ -116,7 +137,12 @@ export default function SettingsPage() {
       const trim = (v: string) => (v.trim() === "" ? null : v.trim());
       const data = await apiClient.patch<{ shop: Record<string, unknown> }>(`/api/shops/${user.shopId}`, {
         receiptName: trim(receipt.receiptName),
+        city: trim(receipt.city),
+        companyName: trim(receipt.companyName),
         gstin: trim(receipt.gstin),
+        gstDate: trim(receipt.gstDate),
+        fssai: trim(receipt.fssai),
+        franchiseNote: trim(receipt.franchiseNote),
         upiId: trim(receipt.upiId),
         phone: trim(receipt.phone),
         receiptFooter: trim(receipt.receiptFooter),
@@ -248,8 +274,18 @@ export default function SettingsPage() {
               <dl className="grid grid-cols-[64px_1fr] gap-x-3 gap-y-1.5 text-sm">
                 <dt className="text-xs text-muted-foreground self-center">Name</dt>
                 <dd className="font-medium truncate" title={receipt.receiptName || shop?.name || "—"}>{receipt.receiptName || shop?.name || "—"}</dd>
+                <dt className="text-xs text-muted-foreground self-center">City</dt>
+                <dd className="text-[13px] truncate" title={receipt.city || "—"}>{receipt.city || <span className="text-muted-foreground">—</span>}</dd>
+                <dt className="text-xs text-muted-foreground self-center">Company</dt>
+                <dd className="text-[13px] truncate" title={receipt.companyName || "—"}>{receipt.companyName || <span className="text-muted-foreground">—</span>}</dd>
                 <dt className="text-xs text-muted-foreground self-center">GSTIN</dt>
                 <dd className="font-mono text-[13px] truncate" title={receipt.gstin || "—"}>{receipt.gstin || <span className="text-muted-foreground">—</span>}</dd>
+                <dt className="text-xs text-muted-foreground self-center">GST date</dt>
+                <dd className="font-mono text-[13px] truncate" title={receipt.gstDate || "—"}>{receipt.gstDate || <span className="text-muted-foreground">—</span>}</dd>
+                <dt className="text-xs text-muted-foreground self-center">FSSAI</dt>
+                <dd className="font-mono text-[13px] truncate" title={receipt.fssai || "—"}>{receipt.fssai || <span className="text-muted-foreground">—</span>}</dd>
+                <dt className="text-xs text-muted-foreground self-center">Franchise</dt>
+                <dd className="text-[13px] truncate" title={receipt.franchiseNote || "—"}>{receipt.franchiseNote || <span className="text-muted-foreground">—</span>}</dd>
                 <dt className="text-xs text-muted-foreground self-center">UPI id</dt>
                 <dd className="font-mono text-[13px] truncate" title={receipt.upiId || "—"}>{receipt.upiId || <span className="text-muted-foreground">—</span>}</dd>
                 <dt className="text-xs text-muted-foreground self-center">Phone</dt>
@@ -309,7 +345,7 @@ export default function SettingsPage() {
 
           {/* Add counter modal — names are automatic (first missing number) */}
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <DialogContent className="sm:max-w-[380px] p-0 gap-0 overflow-hidden">
+            <DialogContent className="sm:max-w-95 p-0 gap-0 overflow-hidden">
               <DialogHeader className="p-5 pb-3">
                 <DialogTitle className="text-[15px] flex items-center gap-2"><Monitor className="w-4 h-4 text-primary" /> Add counter</DialogTitle>
                 <DialogDescription className="text-xs">
@@ -335,7 +371,7 @@ export default function SettingsPage() {
 
           {/* Counter detail modal — assigned staff + delete */}
           <Dialog open={detail !== null} onOpenChange={(v) => !v && setDetailId(null)}>
-            <DialogContent className="sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+            <DialogContent className="sm:max-w-105 p-0 gap-0 overflow-hidden">
               <DialogHeader className="p-5 pb-3 border-b bg-muted/20">
                 <div className="flex items-center gap-3 pr-6">
                   <span className="w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
@@ -349,7 +385,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </DialogHeader>
-              <div className="px-3 py-2 max-h-[300px] overflow-auto">
+              <div className="px-3 py-2 max-h-75 overflow-auto">
                 {detailStaff.length === 0 ? (
                   <div className="p-6 text-center text-xs text-muted-foreground">Nobody bills here yet. Assign staff from Users.</div>
                 ) : (

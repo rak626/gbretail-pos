@@ -30,6 +30,7 @@ import RestockDialog from "@/components/inventory/RestockDialog";
 import ImportDialog from "@/components/inventory/ImportDialog";
 import { emptyProductForm, type Product, type ProductForm } from "@/components/inventory/types";
 import { toEpoch } from "@/types";
+import { nearestBatchExpiry } from "@/lib/stock";
 import { Package, Plus, Shield, ChevronLeft, ChevronRight, ToggleRight, ToggleLeft } from "lucide-react";
 
 const SEARCH_MIN = 2;
@@ -37,6 +38,7 @@ const SEARCH_MIN = 2;
 export default function InventoryPage() {
   const [masterProducts, setMasterProducts] = useState<MasterProduct[]>([]);
   const [shopProducts, setShopProducts] = useState<ShopProduct[]>([]);
+  const [allBatches, setAllBatches] = useState<ShopProductBatch[]>([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("All");
   const [stockFilter, setStockFilter] = useState<"all" | "in" | "low" | "out">("all");
@@ -156,7 +158,11 @@ export default function InventoryPage() {
   const loadShopProducts = useCallback(async () => {
     try {
       const data = await fetchShopProducts({ limit: 500, page: 1 });
-      setShopProducts(data.shopProducts as unknown as ShopProduct[]);
+      const products = data.shopProducts as unknown as ShopProduct[];
+      setShopProducts(products);
+      // Fetch all batches for expiry tracking
+      const batchData = await fetchShopProductBatches({ activeOnly: true });
+      setAllBatches(batchData.batches as unknown as ShopProductBatch[]);
     } catch {
       // best-effort; shop products loaded on demand
     }
@@ -236,6 +242,13 @@ export default function InventoryPage() {
   }, [shopProducts]);
 
   const displayProducts = useMemo(() => {
+    // Batch expiry lookup by shopProductId
+    const batchBySp = new Map<string, ShopProductBatch[]>();
+    for (const b of allBatches) {
+      const arr = batchBySp.get(b.shopProductId) ?? [];
+      arr.push(b);
+      batchBySp.set(b.shopProductId, arr);
+    }
     return masterProducts.map((mp) => {
       const sp = shopProductMap.get(mp.id);
       const isEnabled = !!sp?.isEnabled;
@@ -244,6 +257,9 @@ export default function InventoryPage() {
       const isLow = stock > 0 && stock <= threshold;
       const isOut = stock <= 0;
       const status: "out" | "low" | "ok" = isOut ? "out" : isLow ? "low" : "ok";
+      // Nearest batch expiry
+      const batches = batchBySp.get(sp?.id ?? "") ?? [];
+      const nearest = nearestBatchExpiry(batches);
       return {
         ...mp,
         id: mp.id,
@@ -259,10 +275,12 @@ export default function InventoryPage() {
         status,
         isLow,
         isOut,
+        nearestExpiry: nearest?.expiryDate ?? null,
+        expiryStatus: nearest?.status ?? "ok",
         createdAt: mp.createdAt,
       } as ShopProductView;
     });
-  }, [masterProducts, shopProductMap]);
+  }, [masterProducts, shopProductMap, allBatches]);
 
   const filtered = useMemo(() => {
     let items = displayProducts;
@@ -655,7 +673,7 @@ export default function InventoryPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="overflow-auto flex-1 min-h-[380px] max-h-[68vh] lg:max-h-[72vh]">
+                  <div className="overflow-auto flex-1 min-h-95 max-h-[68vh] lg:max-h-[72vh]">
                     <ProductTable
                       products={filtered as ShopProductView[]}
                       showCost={showCost}

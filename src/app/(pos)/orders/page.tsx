@@ -11,7 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { formatINR } from "@/lib/utils";
 import { generateReceiptHTML, printReceiptHTML } from "@/lib/print";
+import { derivePayments } from "@/lib/receipt/payments";
 import { useReceiptShop } from "@/hooks/useReceiptShop";
+import { useReceiptMeta } from "@/hooks/useReceiptMeta";
 import { fetchOrders } from "@/lib/api";
 import type { Order } from "@/db/database";
 import { Receipt, User, Phone, CreditCard, ShoppingBag, Printer, X, ChevronLeft, ChevronRight, ChevronRight as GoIcon, Copy, Check, Hash, RefreshCw, CircleUserRound, Search, Calendar } from "lucide-react";
@@ -88,6 +90,7 @@ export default function OrdersPage() {
   const [copied, setCopied] = useState(false);
   const [copiedRow, setCopiedRow] = useState<string | null>(null);
   const receiptShop = useReceiptShop();
+  const receiptMeta = useReceiptMeta();
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -329,7 +332,7 @@ export default function OrdersPage() {
 
               <div className="flex flex-wrap items-center gap-2">
                 <Select value={payment} onValueChange={(v) => handlePaymentChange(v as PaymentFilter)}>
-                  <SelectTrigger size="sm" className="h-9 min-w-[130px]" aria-label="Filter by payment method"><SelectValue>{PAYMENT_LABELS[payment]}</SelectValue></SelectTrigger>
+                  <SelectTrigger size="sm" className="h-9 min-w-32.5" aria-label="Filter by payment method"><SelectValue>{PAYMENT_LABELS[payment]}</SelectValue></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Payment: All</SelectItem>
                     <SelectItem value="cash">Cash</SelectItem>
@@ -446,7 +449,7 @@ export default function OrdersPage() {
                               return (
                                 <TableRow
                                   key={o.id}
-                                  className="hover:bg-primary/[0.04] cursor-pointer group"
+                                  className="hover:bg-primary/4 cursor-pointer group"
                                   onClick={() => { setSelectedOrder(o); setCopied(false); }}
                                   tabIndex={0}
                                   onKeyDown={(e) => { if (e.key === "Enter") { setSelectedOrder(o); setCopied(false); } }}
@@ -564,12 +567,27 @@ export default function OrdersPage() {
                 unit: (it as any).unit,
                 isCustom: (it as any).isCustom,
                 lineTotal: it.lineTotal,
+                articleCode: (it as any).productId ? String((it as any).productId).slice(-10) : undefined,
               }));
               const custLabel = customer?.name || (o.customerId ? "Customer" : undefined);
               const label = o.paymentMethod === "split" && o.cashAmount != null && o.upiAmount != null
                 ? `${custLabel ? `${custLabel} ` : ""}(Split: Cash ${formatINR(o.cashAmount)} + UPI ${formatINR(o.upiAmount)})`
                 : custLabel;
-              const html = generateReceiptHTML(items as any, o.total, o.discount || 0, label, full, receiptShop);
+              const payments = derivePayments({
+                paymentMethod: o.paymentMethod,
+                cashAmount: o.cashAmount,
+                upiAmount: o.upiAmount,
+                total: o.total,
+                upiId: receiptShop?.upiId,
+                customerName: customer?.name,
+              });
+              const html = generateReceiptHTML(items as any, o.total, o.discount || 0, label, full, receiptShop, {
+                ...receiptMeta,
+                billNo: full,
+                billDate: o.createdAt,
+                payments,
+                customerPhone: customer?.phone ?? null,
+              });
               printReceiptHTML(html);
                       };
             const handleCopy = async () => {

@@ -29,6 +29,41 @@ export function stockStatusOf(p: StockLike): StockStatus {
   return "ok";
 }
 
+/** Batch expiry helpers — warn when batches are expired or nearing expiry. */
+export type BatchExpiryStatus = "ok" | "expiring" | "expired";
+
+const DAYS_UNTIL_EXPIRY_WARN = 30; // warn when a batch expires within 30 days
+
+export function daysUntilExpiry(expiryDate: string | null): number | null {
+  if (!expiryDate) return null;
+  const t = new Date(expiryDate).getTime();
+  if (isNaN(t)) return null;
+  const now = Date.now();
+  return Math.max(0, Math.ceil((t - now) / (1000 * 60 * 60 * 24)));
+}
+
+export function batchExpiryStatus(expiryDate: string | null): BatchExpiryStatus {
+  const days = daysUntilExpiry(expiryDate);
+  if (days == null) return "ok";
+  if (days <= 0) return "expired";
+  if (days <= DAYS_UNTIL_EXPIRY_WARN) return "expiring";
+  return "ok";
+}
+
+export function nearestBatchExpiry(batches: { expiryDate: string | null }[]): { expiryDate: string | null; status: BatchExpiryStatus; days: number | null } | null {
+  const withDates = batches.filter((b) => b.expiryDate);
+  if (withDates.length === 0) return null;
+  const sorted = withDates.sort((a, b) => {
+    const da = new Date(a.expiryDate!).getTime();
+    const db = new Date(b.expiryDate!).getTime();
+    return da - db;
+  });
+  const nearest = sorted[0];
+  if (!nearest) return null;
+  const days = daysUntilExpiry(nearest.expiryDate);
+  return { expiryDate: nearest.expiryDate, status: batchExpiryStatus(nearest.expiryDate), days };
+}
+
 type PriceLike = {
   price?: number | null;
   rate_per_kg?: number | null;

@@ -18,6 +18,10 @@ export type Product = {
   lowStockThreshold?: number | null;
   // Public photo URL (http(s)) shown on the online storefront. Null = icon fallback.
   imageUrl?: string | null;
+  /** Shop this product row belongs to (for per-shop offline cache isolation). */
+  shopId?: string | null;
+  /** When this row was cached (epoch ms). Null = not yet cached. */
+  cachedAt?: number | null;
 };
 
 export type ProductBatch = {
@@ -138,6 +142,10 @@ export type ShopProductView = {
   status: "out" | "low" | "ok";
   isLow: boolean;
   isOut: boolean;
+  /** Nearest batch expiry date (if any batches tracked). */
+  nearestExpiry: string | null;
+  /** Expiry status of nearest batch. */
+  expiryStatus: "ok" | "expiring" | "expired";
   createdAt: string;
 };
 
@@ -216,6 +224,16 @@ export type ReceiptItem = {
   quantity?: number | null;
   weight?: number | null;
   isCustom?: boolean;
+  /** HSN/SAC code printed against the item line (optional until catalog carries it). */
+  hsn?: string | null;
+  /** Store/SKU article code printed under the description (falls back to product id tail). */
+  articleCode?: string | null;
+  /** GST rate for this line; defaults to the bill-level rate. */
+  gstRate?: number | null;
+  /** MRP when it differs from the selling price (printed as part of the price cell). */
+  mrp?: number | null;
+  /** Line-level discount amount (informational; bill discount is passed separately). */
+  discount?: number | null;
 };
 
 // Utility: normalize raw API dates to epoch ms

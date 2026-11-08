@@ -39,6 +39,10 @@ export class GbretailDB extends Dexie {
       products: "id, name, category, barcode, is_loose",
       ordersQueue: "id, createdAt, synced",
     }).upgrade(() => {});
+    this.version(5).stores({
+      products: "id, name, category, barcode, is_loose, shopId",
+      ordersQueue: "id, createdAt, synced",
+    }).upgrade(() => {});
   }
 }
 
