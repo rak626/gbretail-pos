@@ -7,6 +7,15 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "recharts"],
   },
+  // Same-origin API proxy (deploy plan B): in production NEXT_PUBLIC_API_URL
+  // points at THIS origin, and these rewrites forward /api/* to the Cloudflare
+  // worker. The browser therefore never crosses sites, so the backend's
+  // SameSite=Lax auth cookies stay first-party and refresh sessions survive.
+  // Local dev leaves API_PROXY_TARGET unset and talks to the backend directly.
+  async rewrites() {
+    const target = process.env.API_PROXY_TARGET; // e.g. https://gbretail-backend.<sub>.workers.dev
+    return target ? [{ source: "/api/:path*", destination: `${target}/api/:path*` }] : [];
+  },
   async headers() {
     return [
       {
