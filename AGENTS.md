@@ -13,6 +13,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Online-only POS (no offline billing). Dexie `products` is a speed cache; writes require the server.
 - Auth: httpOnly cookies + in-memory access token. Never persist tokens in localStorage. Refresh via cookie only (`POST /api/auth/refresh`, no body).
 - API base: `NEXT_PUBLIC_API_URL`. Set it in development (`http://localhost:4000`); the client fails fast when it is unset in development. In production the API is mounted in this app at `/api/*`, so leaving it unset means **same origin** (relative URLs) — that is what keeps auth cookies first-party.
+- API mount: `src/app/api/[...path]/route.ts` delegates every `/api/*` request to the Hono app from the `@gbretail/backend` package (release tarball — see `gbretail-backend/scripts/deploy.md`). Two `Set-Cookie` headers must survive that hop (login sets `accessToken` + `refreshToken`); a test pins it.
 - Roles: `SUPER_ADMIN` (platform, no billing) / `SHOP_OWNER` (full shop) / `STAFF` (billing; inventory only with `canManageInventory`). All RBAC is enforced server-side; client bounces are UX only.
 - Catalog: `useCatalogStore.loadCatalog()` is the source; call `invalidate()` after any inventory mutation.
 - CSV import: use `POST /api/products/batch` (≤500 rows), never sequential `POST /api/products`.
