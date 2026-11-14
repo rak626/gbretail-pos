@@ -2,17 +2,26 @@
 // Auth: access token in memory (Authorization header) + httpOnly cookies.
 // Refresh uses the cookie only (no body fallback) — cookies-only hardening.
 
-export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
-
-if (typeof window !== "undefined" && !process.env.NEXT_PUBLIC_API_URL) {
-  console.warn("[apiClient] NEXT_PUBLIC_API_URL is not set — API calls will use relative paths and fail. Set it to http://localhost:4000 (dev) or your backend URL.");
+// API base resolution:
+//   - set   -> absolute origin (local dev: http://localhost:4000)
+//   - unset -> SAME ORIGIN (production: the API is mounted in this app at /api/*)
+// The base is read per call so tests can stub the environment; Next inlines
+// process.env.NEXT_PUBLIC_API_URL at build time, so this stays a literal in
+// the browser bundle.
+function currentApiBase(): string {
+  return (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 }
 
+export const API_BASE = currentApiBase();
+
 export function requireApiBase(): string {
-  if (!API_BASE && typeof window !== "undefined") {
-    throw new Error("NEXT_PUBLIC_API_URL is not set — configure it to reach the backend");
+  const base = currentApiBase();
+  if (!base && process.env.NODE_ENV === "development") {
+    throw new Error(
+      "NEXT_PUBLIC_API_URL is not set — point it at the backend in development (e.g. http://localhost:4000). In production the API is mounted in this app, so an unset value means same origin."
+    );
   }
-  return API_BASE;
+  return base;
 }
 
 export class ApiError extends Error {

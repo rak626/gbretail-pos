@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { apiClient, ApiError, setMemoryTokenStore } from "./apiClient";
+import { apiClient, ApiError, setMemoryTokenStore, requireApiBase } from "./apiClient";
 
 const BASE = "http://localhost:4000";
 
@@ -24,6 +24,24 @@ describe("apiClient", () => {
     const [, init] = spy.mock.calls[0]!;
     expect((init!.headers as Record<string, string>)["Authorization"]).toBe("Bearer mem-token");
     expect(init!.credentials).toBe("include");
+  });
+
+  it("uses a relative same-origin URL when NEXT_PUBLIC_API_URL is unset", async () => {
+    // Production: the API is mounted in this app, so an unset base means same origin.
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "");
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubGlobal("window", {}); // the guard applies in the browser only
+    const spy = vi.fn(async (_url: string, _init?: RequestInit) => jsonResponse({ ok: true }));
+    vi.stubGlobal("fetch", spy);
+    await apiClient.get("/api/health");
+    expect(spy.mock.calls[0]![0]).toBe("/api/health");
+  });
+
+  it("fails fast in development when NEXT_PUBLIC_API_URL is unset", () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "");
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubGlobal("window", {});
+    expect(() => requireApiBase()).toThrow(/NEXT_PUBLIC_API_URL/);
   });
 
   it("401 triggers single cookie-refresh + retry", async () => {
