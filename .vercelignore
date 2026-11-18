@@ -1,0 +1,4 @@
+# Never upload local env files. Next inlines NEXT_PUBLIC_* at build time, so a
+# developer's .env pointing at localhost would silently break the deployed POS.
+.env
+.env.*

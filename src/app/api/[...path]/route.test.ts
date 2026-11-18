@@ -33,4 +33,10 @@ describe("api catch-all route", () => {
   it("is never statically cached", () => {
     expect(dynamic).toBe("force-dynamic");
   });
+
+  it("marks API responses no-store so stock and sessions cannot be cached", async () => {
+    appFetch.mockResolvedValue(Response.json({ stock: 1 }));
+    const res = await GET(new Request("http://localhost/api/products"));
+    expect(res.headers.get("cache-control")).toMatch(/no-store/);
+  });
 });

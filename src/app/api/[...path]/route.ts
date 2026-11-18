@@ -10,6 +10,12 @@ export const runtime = "nodejs";
 // every terminal at once.
 export const dynamic = "force-dynamic";
 
-const handler = (request: Request): Response | Promise<Response> => app.fetch(request);
+const handler = async (request: Request): Promise<Response> => {
+  const response = await app.fetch(request);
+  // Stock levels, orders and sessions are per-request data. force-dynamic keeps
+  // Next from prerendering; this header stops shared caches retaining responses.
+  response.headers.set("cache-control", "no-store");
+  return response;
+};
 
 export { handler as GET, handler as POST, handler as PUT, handler as PATCH, handler as DELETE, handler as OPTIONS };

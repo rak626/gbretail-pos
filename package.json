@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "postinstall": "prisma generate",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && next build && node scripts/check-client-bundle.mjs",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
-    "@gbretail/backend": "https://github.com/rak626/gbretail-backend/releases/download/v1.0.0/gbretail-backend-1.0.0.tgz",
+    "@gbretail/backend": "https://github.com/rak626/gbretail-backend/releases/download/v1.0.1/gbretail-backend-1.0.1.tgz",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

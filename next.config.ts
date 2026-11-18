@@ -32,7 +32,9 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob:",
               "font-src 'self' data:",
-              "connect-src 'self' " + (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"),
+              // Production is same-origin (/api/* mount) — never widen it to a
+              // developer's localhost origin when NEXT_PUBLIC_API_URL is unset.
+              "connect-src 'self'" + (process.env.NEXT_PUBLIC_API_URL ? ` ${process.env.NEXT_PUBLIC_API_URL}` : ""),
               "frame-ancestors 'none'",
             ].join("; "),
           },
